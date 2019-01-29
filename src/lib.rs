@@ -134,24 +134,32 @@ impl<S: Float> Shape<S> for Plane<S> {
         if dir_proj == zero() {
             return -one::<S>();
         }
-        let point_proj = (origin - self.point) * self.normal;
-        let dist = point_proj / dir_proj;
-        if dist < zero() {
+        let point_proj = (self.point - origin) * self.normal;
+        let ratio = point_proj / dir_proj;
+        if ratio < zero() {
             return -one::<S>();
         }
-        dist * dist / dir.norm()
+        ratio * ratio / dir.norm()
     }
 }
 
 #[test]
 fn plane_ray_intersect1() {
-    let plane = Plane::new(Pnt3(0., 1., 0.), Vec3(0., -1., 0.));
+    let plane = Plane::new(Pnt3(0., 0., 1.), Vec3(0., 0., -1.));
     let intersection = plane.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., 0., 1.));
     assert_eq!(intersection, 1.)
 }
+
 #[test]
 fn plane_ray_intersect2() {
-    let plane = Plane::new(Pnt3(0., 2., 0.), Vec3(0., -1., 0.));
+    let plane = Plane::new(Pnt3(0., 0., 1.), Vec3(0., 0., -2.));
+    let intersection = plane.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., 0., 1.));
+    assert_eq!(intersection, 1.)
+}
+
+#[test]
+fn plane_ray_intersect3() {
+    let plane = Plane::new(Pnt3(0., 0., 2.), Vec3(0., 0., -1.));
     let intersection = plane.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., 0., 1.));
     assert_eq!(intersection, 4.)
 }
