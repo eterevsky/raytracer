@@ -1,0 +1,20 @@
+[package]
+name = "raytracer"
+version = "0.1.0"
+authors = ["olege"]
+edition = "2018"
+
+[lib]
+name = "rt"
+path = "src/lib.rs"
+
+[dependencies]
+image = "*"
+num-traits = "*"
+
+[dev-dependencies]
+criterion = "*"
+
+[[bench]]
+name = "benchmarks"
+harness = false
