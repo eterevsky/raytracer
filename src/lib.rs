@@ -105,16 +105,26 @@ fn sphere_ray_intersect2() {
 
 #[test]
 fn sphere_ray_intersect3() {
-    let sphere = Sphere::new(Pnt3(0., 0., 2.), 2.);
+    let sphere = Sphere::new(Pnt3(0., 0., 2.), 1.);
     let intersection = sphere.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., 0., 1.));
     assert_eq!(intersection, 1.)
 }
 
 #[test]
 fn sphere_ray_intersect4() {
-    let sphere = Sphere::new(Pnt3(0., 0., 3.), 2.);
+    let sphere = Sphere::new(Pnt3(0., 0., 3.), 1.);
     let intersection = sphere.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., 0., 1.));
     assert_eq!(intersection, 4.)
+}
+
+#[test]
+fn sphere_ray_intersect5() {
+    let sphere = Sphere::new(Pnt3(0., 0., 3.), 1.);
+    let intersection1 = sphere.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., -1., 3.));
+    let intersection2 = sphere.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., -0.5, 1.5));
+    assert_eq!(intersection1, intersection2);
+    assert!(intersection1 < 6.5);
+    assert!(intersection1 > 6.3);
 }
 
 pub struct Plane<S: Float> {
@@ -128,7 +138,7 @@ impl<S: Float> Plane<S> {
     }
 }
 
-impl<S: Float> Shape<S> for Plane<S> {
+impl<S: Float + std::fmt::Debug> Shape<S> for Plane<S> {
     fn ray_intersect(&self, origin: Pnt3<S>, dir: Vec3<S>) -> S {
         let dir_proj = dir * self.normal;
         if dir_proj == zero() {
@@ -139,7 +149,7 @@ impl<S: Float> Shape<S> for Plane<S> {
         if ratio < zero() {
             return -one::<S>();
         }
-        ratio * ratio / dir.norm()
+        ratio * ratio * dir.norm()
     }
 }
 
@@ -162,4 +172,11 @@ fn plane_ray_intersect3() {
     let plane = Plane::new(Pnt3(0., 0., 2.), Vec3(0., 0., -1.));
     let intersection = plane.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., 0., 1.));
     assert_eq!(intersection, 4.)
+}
+
+#[test]
+fn plane_ray_intersect4() {
+    let plane = Plane::new(Pnt3(0., -1., 0.), Vec3(0., 1., 0.));
+    let intersection = plane.ray_intersect(Pnt3(0., 0., -1.), Vec3(0., -0.5, 2.));
+    assert_eq!(intersection, 17.);
 }
