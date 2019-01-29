@@ -1,3 +1,4 @@
+use image::Rgb;
 use num_traits::Num;
 use num_traits::float::Float;
 use num_traits::identities::{one, zero};
@@ -179,4 +180,52 @@ fn plane_ray_intersect4() {
     let plane = Plane::new(Pnt3(0., -1., 0.), Vec3(0., 1., 0.));
     let intersection = plane.ray_intersect(Pnt3(0., 0., -1.), Vec3(0., -0.5, 2.));
     assert_eq!(intersection, 17.);
+}
+
+#[derive(Clone, Copy)]
+pub struct Material {
+    pub color: Rgb<u8>
+}
+
+impl Material {
+    pub fn new(r: f32, g: f32, b: f32) -> Self {
+        Material {
+            color: Rgb([(r * 255.) as u8, (g * 255.) as u8, (b * 255.) as u8])
+        }
+    }
+}
+
+pub struct Scene<S: Float> {
+    shapes: Vec<Box<Shape<S>>>,
+    materials: Vec<Material>
+}
+
+impl<S: Float> Scene<S> {
+    pub fn new() -> Self {
+        Scene {
+            shapes: Vec::new(),
+            materials: Vec::new(),
+        }
+    }
+
+    pub fn add<T: Shape<S> + 'static>(&mut self, shape: T, material: Material) -> usize {
+        let idx = self.shapes.len();
+        self.shapes.push(Box::new(shape));
+        self.materials.push(material);
+        idx
+    }
+
+    pub fn find_intersection(&self, origin: Pnt3<S>, dir: Vec3<S>) -> Option<Material> {
+        let mut best_idx = None;
+        let mut nearest = S::infinity();
+        for (idx, shape) in self.shapes.iter().enumerate() {
+            let distance = shape.ray_intersect(origin, dir);
+            if distance > zero() && distance < nearest {
+                nearest = distance;
+                best_idx = Some(idx);
+            }
+        }
+
+        best_idx.map(|idx| self.materials[idx])
+    }
 }

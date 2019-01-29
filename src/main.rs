@@ -6,8 +6,12 @@ use rt::*;
 fn main() {
     let mut image = image::ImageBuffer::new(1024, 1024);
 
-    let sphere = Sphere::new(Pnt3(0.0, 0.0, 3.), 1.);
-    let plane = Plane::new(Pnt3(0., -1., 0.), Vec3(0., 1., 0.));
+    let mut scene = Scene::new();
+    scene.add(Sphere::new(Pnt3(0.0, 0.0, 3.), 1.), Material::new(0.75, 0.25, 0.25));
+    scene.add(Plane::new(Pnt3(0., -1., 0.), Vec3(0., 1., 0.)), Material::new(0.25, 0.25, 0.75));
+    scene.add(Sphere::new(Pnt3(1.0, 3.0, 10.), 2.), Material::new(0.25, 0.65, 0.25));
+    let scene = scene;
+
     let origin = Pnt3(0., 0., -1.);
 
     let start = time::Instant::now();
@@ -18,13 +22,9 @@ fn main() {
         let x = x as f32 / 512. - 1.;
         let y = -(y as f32 / 512. - 1.);
         let dir = Pnt3(x, y, 1.) - origin;
-        let intersect_sphere = sphere.ray_intersect(origin, dir);
-        let intersect_plane = plane.ray_intersect(origin, dir);
-        if intersect_sphere > 0. && (intersect_plane < 0. ||
-                                     intersect_plane > intersect_sphere) {
-            *pixel = image::Rgb([192u8, 64u8, 64u8]);
-        } else if intersect_plane > 0. {
-            *pixel = image::Rgb([64u8, 64u8, 192u8]);
+
+        if let Some(material) = scene.find_intersection(origin, dir) {
+            *pixel = material.color;
         } else {
             *pixel = image::Rgb([128u8, 128u8, 128u8]);
         }
