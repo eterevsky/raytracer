@@ -25,5 +25,31 @@ fn sphere_ray_f64(c: &mut Criterion) {
         });
 }
 
-criterion_group!(benches, sphere_ray, sphere_ray_f64);
+fn plane_ray(c: &mut Criterion) {
+    c.bench_function(
+        "plane ray",
+        |b| {
+            let plane = Plane::new(Pnt3(0., -1., 0.), Vec3(0., 1., 0.));
+            let origin = Pnt3(0., 0., 3.);
+            let dir = Vec3(0., -0.1, 1.);
+            b.iter(|| plane.ray_intersect(origin, dir))
+        });
+}
+
+fn scene_ray(c: &mut Criterion) {
+    c.bench_function(
+        "scene ray",
+        |b| {
+            let mut scene = Scene::new();
+            scene.add_sphere(Sphere::new(Pnt3(0.0, 0.0, -3.), 1.), Material::new(0.75, 0.25, 0.25));
+            scene.add_plane(Plane::new(Pnt3(0., -1., 0.), Vec3(0., 1., 0.)), Material::new(0.25, 0.25, 0.75));
+            scene.add_sphere(Sphere::new(Pnt3(1.0, 3.0, -10.), 2.), Material::new(0.25, 0.65, 0.25));
+            let origin = Pnt3(0., 0., 3.);
+            let dir = Vec3(0., 0., 1.);
+            b.iter(|| scene.find_intersection(origin, dir))
+        });
+
+}
+
+criterion_group!(benches, sphere_ray, plane_ray, scene_ray);
 criterion_main!(benches);

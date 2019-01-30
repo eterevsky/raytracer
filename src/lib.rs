@@ -1,8 +1,10 @@
-use image::Rgb;
+use image;
 use num_traits::Num;
+use num_traits::cast::{NumCast, cast};
 use num_traits::float::Float;
 use num_traits::identities::{one, zero};
 use std::ops;
+use std::time;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Vec3<S: Num + Copy> (pub S, pub S, pub S);
@@ -139,7 +141,7 @@ impl<S: Float> Plane<S> {
     }
 }
 
-impl<S: Float + std::fmt::Debug> Shape<S> for Plane<S> {
+impl<S: Float> Shape<S> for Plane<S> {
     fn ray_intersect(&self, origin: Pnt3<S>, dir: Vec3<S>) -> S {
         let dir_proj = dir * self.normal;
         if dir_proj == zero() {
@@ -184,19 +186,21 @@ fn plane_ray_intersect4() {
 
 #[derive(Clone, Copy)]
 pub struct Material {
-    pub color: Rgb<u8>
+    pub color: image::Rgb<u8>
 }
 
 impl Material {
     pub fn new(r: f32, g: f32, b: f32) -> Self {
         Material {
-            color: Rgb([(r * 255.) as u8, (g * 255.) as u8, (b * 255.) as u8])
+            color: image::Rgb([(r * 255.) as u8, (g * 255.) as u8, (b * 255.) as u8])
         }
     }
 }
 
 pub struct Scene<S: Float> {
     shapes: Vec<Box<Shape<S>>>,
+    spheres: Vec<(usize, Sphere<S>)>,
+    planes: Vec<(usize, Plane<S>)>,
     materials: Vec<Material>
 }
 
@@ -204,6 +208,8 @@ impl<S: Float> Scene<S> {
     pub fn new() -> Self {
         Scene {
             shapes: Vec::new(),
+            spheres: Vec::new(),
+            planes: Vec::new(),
             materials: Vec::new(),
         }
     }
@@ -215,17 +221,89 @@ impl<S: Float> Scene<S> {
         idx
     }
 
+    pub fn add_sphere(&mut self, sphere: Sphere<S>, material: Material) -> usize {
+        let id = self.materials.len();
+        self.spheres.push((id, sphere));
+        self.materials.push(material);
+        id
+    }
+
+    pub fn add_plane(&mut self, plane: Plane<S>, material: Material) -> usize {
+        let id = self.materials.len();
+        self.planes.push((id, plane));
+        self.materials.push(material);
+        id
+    }
+
     pub fn find_intersection(&self, origin: Pnt3<S>, dir: Vec3<S>) -> Option<Material> {
-        let mut best_idx = None;
+        let mut best_idx: Option<usize> = None;
         let mut nearest = S::infinity();
-        for (idx, shape) in self.shapes.iter().enumerate() {
-            let distance = shape.ray_intersect(origin, dir);
+        // for idx in 0..self.shapes.len() {
+        //     let distance = self.shapes[idx].ray_intersect(origin, dir);
+        //     if distance > zero() && distance < nearest {
+        //         nearest = distance;
+        //         best_idx = Some(idx);
+        //     }
+        // }
+
+        for (id, sphere) in self.spheres.iter() {
+            let distance = sphere.ray_intersect(origin, dir);
             if distance > zero() && distance < nearest {
                 nearest = distance;
-                best_idx = Some(idx);
+                best_idx = Some(*id);
+            }
+        }
+
+        for (id, plane) in self.planes.iter() {
+            let distance = plane.ray_intersect(origin, dir);
+            if distance > zero() && distance < nearest {
+                nearest = distance;
+                best_idx = Some(*id);
             }
         }
 
         best_idx.map(|idx| self.materials[idx])
+    }
+}
+
+pub struct Camera<S: Float> {
+    w: u32,
+    h: u32,
+    scale: S,
+    origin: Pnt3<S>,
+}
+
+impl Camera<f32> {
+    // `fov` -- vertical field of view, horizontal field of view scales with 
+    pub fn new(w: u32, h: u32, origin: Pnt3<f32>) -> Self {
+        Camera {
+            w, h, origin,
+            scale: 2. / (h as f32)
+        }
+    }
+
+    pub fn render(&self, scene: &Scene<f32>) -> image::ImageBuffer<image::Rgb<u8>, Vec<u8>> {
+        let mut image = image::ImageBuffer::new(self.w, self.h);
+        let start = time::Instant::now();
+        let mut rays: u64 = 0;
+
+        for (x, y, pixel) in image.enumerate_pixels_mut() {
+            rays += 1;
+            let x = (x as f32) * self.scale - 1.;
+            let y = -(y as f32) * self.scale + 1.;
+            let dir = Pnt3(x, y, 0.) - self.origin;
+
+            if let Some(material) = scene.find_intersection(self.origin, dir) {
+                *pixel = material.color;
+            } else {
+                *pixel = image::Rgb([128u8, 128u8, 128u8]);
+            }
+        }
+
+        let t = time::Instant::now() - start;
+        let t = t.as_secs() as f64 + 1E-9 * t.subsec_nanos() as f64;
+        println!("Elapsed {} ms", t * 1000.);
+        println!("{} ns per ray", (t / rays as f64) * 1E9);
+        image
     }
 }
