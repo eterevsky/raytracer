@@ -9,8 +9,8 @@ name = "rt"
 path = "src/lib.rs"
 
 [dependencies]
+cgmath = "*"
 image = "*"
-num-traits = "*"
 
 [dev-dependencies]
 criterion = "*"
