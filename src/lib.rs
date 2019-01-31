@@ -1,32 +1,35 @@
 use image;
-use num_traits::Num;
 use num_traits::cast::{NumCast, cast};
+use num_traits::cast::AsPrimitive;
 use num_traits::float::Float;
 use num_traits::identities::{one, zero};
+use std::cmp::{Ordering, PartialOrd};
 use std::ops;
 use std::time;
 
 #[derive(Clone, Copy, Debug)]
-pub struct Vec3<S: Num + Copy> (pub S, pub S, pub S);
+pub struct Vec3<S: Float> (pub S, pub S, pub S);
 
-impl<S: Num + Copy> Vec3<S> {
+impl<S: Float> Vec3<S> {
+    pub fn zero() -> Self {
+        Vec3(zero(), zero(), zero())
+    }
+
     fn norm(self) -> S {
         self.0 * self.0 + self.1 * self.1 + self.2 * self.2
     }
-}
 
-impl Vec3<f32> {
-    pub fn len(self) -> f32 {
+    pub fn len(self) -> S {
         self.norm().sqrt()
     }
 
-    pub fn normalize(self) -> Vec3<f32> {
+    pub fn normalize(self) -> Self {
         let len = self.len();
         Vec3(self.0 / len, self.1 / len, self.2 / len)
     }
 }
 
-impl<S: Num + Copy> ops::Add<Vec3<S>> for Vec3<S> {
+impl<S: Float> ops::Add<Vec3<S>> for Vec3<S> {
     type Output = Vec3<S>;
 
     fn add(self, rhs: Vec3<S>) -> Self::Output {
@@ -34,11 +37,27 @@ impl<S: Num + Copy> ops::Add<Vec3<S>> for Vec3<S> {
     }
 }
 
-impl<S: Num + Copy> ops::Mul<Vec3<S>> for Vec3<S> {
+impl<S: Float> ops::Sub<Vec3<S>> for Vec3<S> {
+    type Output = Vec3<S>;
+
+    fn sub(self, rhs: Vec3<S>) -> Self::Output {
+        Vec3(self.0 - rhs.0, self.1 - rhs.1, self.2 - rhs.2)
+    }
+}
+
+impl<S: Float> ops::Mul<Vec3<S>> for Vec3<S> {
     type Output = S;
 
     fn mul(self, rhs: Vec3<S>) -> S {
         self.0 * rhs.0 + self.1 * rhs.1 + self.2 * rhs.2
+    }
+}
+
+impl<S: Float> ops::Mul<S> for Vec3<S> {
+    type Output = Vec3<S>;
+
+    fn mul(self, rhs: S) -> Vec3<S> {
+        Vec3(self.0 * rhs, self.1 * rhs, self.2 * rhs)
     }
 }
 
@@ -53,10 +72,65 @@ impl<S: Float> ops::Sub<Pnt3<S>> for Pnt3<S> {
     }
 }
 
+impl<S: Float> ops::Add<Vec3<S>> for Pnt3<S> {
+    type Output = Pnt3<S>;
+
+    fn add(self, rhs: Vec3<S>) -> Pnt3<S> {
+        Pnt3(self.0 + rhs.0, self.1 + rhs.1, self.2 + rhs.2)
+    }
+}
+
+pub struct Intersection<S: Float> {
+    pub dist2: S,
+    pub normal: Vec3<S>,
+}
+
+impl<S: Float> Intersection<S> {
+    pub fn no() -> Self {
+        Intersection {
+            dist2: -one::<S>(),
+            normal: Vec3::zero(),
+        }
+    }
+
+    pub fn new(dist2: S, normal: Vec3<S>) -> Self {
+        Intersection {
+            dist2,
+            normal,
+        }
+    }
+
+    pub fn exists(&self) -> bool { self.dist2 >= zero() }
+}
+
+impl<S: Float> PartialEq for Intersection<S> {
+    fn eq(&self, other: &Intersection<S>) -> bool {
+        self.exists() && other.exists() && self.dist2 == other.dist2
+    }
+}
+
+impl<S: Float> PartialOrd for Intersection<S> {
+    fn partial_cmp(&self, other: &Intersection<S>) -> Option<Ordering> {
+        if self.exists() {
+            if other.exists() {
+                self.dist2.partial_cmp(&other.dist2)
+            } else {
+                Some(Ordering::Less)
+            }
+        } else {
+            if other.exists() {
+                Some(Ordering::Greater)
+            } else {
+                None
+            }
+        }
+    }
+}
+
 pub trait Shape<S: Float> {
     // Returns negative value if there is no intersection, or the square distance to
     // the intersection if there is one.
-    fn ray_intersect(&self, origin: Pnt3<S>, dir: Vec3<S>) -> S;
+    fn ray_intersect(&self, origin: Pnt3<S>, dir: Vec3<S>) -> Intersection<S>;
 }
 
 pub struct Sphere<S: Float> {
@@ -73,22 +147,27 @@ impl<S: Float> Sphere<S> {
     }
 }
 
-impl<S: Float> Shape<S> for Sphere<S> {
-    fn ray_intersect(&self, origin: Pnt3<S>, dir: Vec3<S>) -> S {
+impl<S: Float + AsPrimitive<f32>> Shape<S> for Sphere<S> {
+    fn ray_intersect(&self, origin: Pnt3<S>, dir: Vec3<S>) -> Intersection<S> {
         let to_center = self.center - origin;
         let p = to_center * dir;
         let projection2 = p*p / dir.norm();
         let ray_dist2 = to_center.norm() - projection2;
         let r2 = self.radius * self.radius;
         if ray_dist2 > r2 {
-            return -one::<S>();
+            return Intersection::no();
         }
         let seg2 = r2 - ray_dist2;
         if projection2 < seg2 {
-            return -one::<S>();
+            return Intersection::no();
         }
         let four = one::<S>() + one::<S>() + one::<S>() + one::<S>();
-        projection2 + seg2 - (four * projection2 * seg2).sqrt()
+        let dist2 = projection2 + seg2 - (four * projection2 * seg2).sqrt();
+        if dist2.as_() < 1E-6 {
+            return Intersection::no();
+        }
+        let to_intersect = dir * (dist2 / dir.norm()).sqrt();
+        Intersection::new(dist2, to_intersect - to_center)
     }
 }
 
@@ -96,28 +175,28 @@ impl<S: Float> Shape<S> for Sphere<S> {
 fn sphere_ray_intersect1() {
     let sphere = Sphere::new(Pnt3(0., 0., 2.), 1.);
     let intersection = sphere.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., 0., 1.));
-    assert_eq!(intersection, 1.)
+    assert_eq!(intersection.dist2, 1.)
 }
 
 #[test]
 fn sphere_ray_intersect2() {
     let sphere = Sphere::new(Pnt3(0., 0., 3.), 1.);
     let intersection = sphere.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., 0., 1.));
-    assert_eq!(intersection, 4.)
+    assert_eq!(intersection.dist2, 4.)
 }
 
 #[test]
 fn sphere_ray_intersect3() {
     let sphere = Sphere::new(Pnt3(0., 0., 2.), 1.);
     let intersection = sphere.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., 0., 1.));
-    assert_eq!(intersection, 1.)
+    assert_eq!(intersection.dist2, 1.)
 }
 
 #[test]
 fn sphere_ray_intersect4() {
     let sphere = Sphere::new(Pnt3(0., 0., 3.), 1.);
     let intersection = sphere.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., 0., 1.));
-    assert_eq!(intersection, 4.)
+    assert_eq!(intersection.dist2, 4.)
 }
 
 #[test]
@@ -125,9 +204,9 @@ fn sphere_ray_intersect5() {
     let sphere = Sphere::new(Pnt3(0., 0., 3.), 1.);
     let intersection1 = sphere.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., -1., 3.));
     let intersection2 = sphere.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., -0.5, 1.5));
-    assert_eq!(intersection1, intersection2);
-    assert!(intersection1 < 6.5);
-    assert!(intersection1 > 6.3);
+    assert_eq!(intersection1.dist2, intersection2.dist2);
+    assert!(intersection1.dist2 < 6.5);
+    assert!(intersection1.dist2 > 6.3);
 }
 
 pub struct Plane<S: Float> {
@@ -141,18 +220,22 @@ impl<S: Float> Plane<S> {
     }
 }
 
-impl<S: Float> Shape<S> for Plane<S> {
-    fn ray_intersect(&self, origin: Pnt3<S>, dir: Vec3<S>) -> S {
+impl<S: Float + AsPrimitive<f32>> Shape<S> for Plane<S> {
+    fn ray_intersect(&self, origin: Pnt3<S>, dir: Vec3<S>) -> Intersection<S> {
         let dir_proj = dir * self.normal;
         if dir_proj == zero() {
-            return -one::<S>();
+            return Intersection::no();
         }
         let point_proj = (self.point - origin) * self.normal;
         let ratio = point_proj / dir_proj;
         if ratio < zero() {
-            return -one::<S>();
+            return Intersection::no();
         }
-        ratio * ratio * dir.norm()
+        let dist2 = ratio * ratio * dir.norm();
+        if dist2.as_() < 1E-6 {
+            return Intersection::no();
+        }
+        Intersection::new(dist2, self.normal)
     }
 }
 
@@ -160,28 +243,28 @@ impl<S: Float> Shape<S> for Plane<S> {
 fn plane_ray_intersect1() {
     let plane = Plane::new(Pnt3(0., 0., 1.), Vec3(0., 0., -1.));
     let intersection = plane.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., 0., 1.));
-    assert_eq!(intersection, 1.)
+    assert_eq!(intersection.dist2, 1.)
 }
 
 #[test]
 fn plane_ray_intersect2() {
     let plane = Plane::new(Pnt3(0., 0., 1.), Vec3(0., 0., -2.));
     let intersection = plane.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., 0., 1.));
-    assert_eq!(intersection, 1.)
+    assert_eq!(intersection.dist2, 1.)
 }
 
 #[test]
 fn plane_ray_intersect3() {
     let plane = Plane::new(Pnt3(0., 0., 2.), Vec3(0., 0., -1.));
     let intersection = plane.ray_intersect(Pnt3(0., 0., 0.), Vec3(0., 0., 1.));
-    assert_eq!(intersection, 4.)
+    assert_eq!(intersection.dist2, 4.)
 }
 
 #[test]
 fn plane_ray_intersect4() {
     let plane = Plane::new(Pnt3(0., -1., 0.), Vec3(0., 1., 0.));
     let intersection = plane.ray_intersect(Pnt3(0., 0., -1.), Vec3(0., -0.5, 2.));
-    assert_eq!(intersection, 17.);
+    assert_eq!(intersection.dist2, 17.);
 }
 
 #[derive(Clone, Copy)]
@@ -197,28 +280,26 @@ impl Material {
     }
 }
 
-pub struct Scene<S: Float> {
-    shapes: Vec<Box<Shape<S>>>,
-    spheres: Vec<(usize, Sphere<S>)>,
-    planes: Vec<(usize, Plane<S>)>,
-    materials: Vec<Material>
+pub struct PointLight<S: Float> {
+    position: Pnt3<S>,
+    intensity: S,
 }
 
-impl<S: Float> Scene<S> {
+pub struct Scene<S: Float> {
+    spheres: Vec<(usize, Sphere<S>)>,
+    planes: Vec<(usize, Plane<S>)>,
+    materials: Vec<Material>,
+    lights: Vec<PointLight<S>>,
+}
+
+impl<S: Float + AsPrimitive<f32>> Scene<S> {
     pub fn new() -> Self {
         Scene {
-            shapes: Vec::new(),
             spheres: Vec::new(),
             planes: Vec::new(),
             materials: Vec::new(),
+            lights: Vec::new()
         }
-    }
-
-    pub fn add<T: Shape<S> + 'static>(&mut self, shape: T, material: Material) -> usize {
-        let idx = self.shapes.len();
-        self.shapes.push(Box::new(shape));
-        self.materials.push(material);
-        idx
     }
 
     pub fn add_sphere(&mut self, sphere: Sphere<S>, material: Material) -> usize {
@@ -235,9 +316,13 @@ impl<S: Float> Scene<S> {
         id
     }
 
-    pub fn find_intersection(&self, origin: Pnt3<S>, dir: Vec3<S>) -> Option<Material> {
-        let mut best_idx: Option<usize> = None;
-        let mut nearest = S::infinity();
+    pub fn add_light(&mut self, position: Pnt3<S>, intensity: S) {
+        self.lights.push(PointLight{position, intensity})
+    }
+
+    pub fn find_intersection(&self, origin: Pnt3<S>, dir: Vec3<S>) -> (Intersection<S>, usize) {
+        let mut best_idx = 0;
+        let mut nearest = Intersection::no();
         // for idx in 0..self.shapes.len() {
         //     let distance = self.shapes[idx].ray_intersect(origin, dir);
         //     if distance > zero() && distance < nearest {
@@ -247,22 +332,50 @@ impl<S: Float> Scene<S> {
         // }
 
         for (id, sphere) in self.spheres.iter() {
-            let distance = sphere.ray_intersect(origin, dir);
-            if distance > zero() && distance < nearest {
-                nearest = distance;
-                best_idx = Some(*id);
+            let intersection = sphere.ray_intersect(origin, dir);
+            if intersection < nearest {
+                nearest = intersection;
+                best_idx = *id;
             }
         }
 
         for (id, plane) in self.planes.iter() {
-            let distance = plane.ray_intersect(origin, dir);
-            if distance > zero() && distance < nearest {
-                nearest = distance;
-                best_idx = Some(*id);
+            let intersection = plane.ray_intersect(origin, dir);
+            if intersection < nearest {
+                nearest = intersection;
+                best_idx = *id;
             }
         }
 
-        best_idx.map(|idx| self.materials[idx])
+        (nearest, best_idx)
+    }
+
+    pub fn ray_color(&self, origin: Pnt3<S>, dir: Vec3<S>) -> image::Rgb<u8> {
+        let (intersection, id) = self.find_intersection(origin, dir);
+        if !intersection.exists() {
+            return image::Rgb([0, 0, 0]);
+        }
+
+        let material = self.materials[id];
+        let ipoint = origin + dir * (intersection.dist2 / dir.norm()).sqrt();
+        let mut illumination: S = zero();
+        let normal = intersection.normal.normalize();
+
+        for light in self.lights.iter() {
+            let light_vec = light.position - ipoint;
+            let (to_light_int, _) = self.find_intersection(ipoint, light_vec);
+            if to_light_int.exists() { continue; }
+            let dist2 = light_vec.norm();
+            let prod = normal * light_vec;
+            if prod <= zero() { continue; }
+            illumination = illumination + light.intensity * prod / dist2;
+        }
+
+        image::Rgb([
+            (material.color[0] as f32 * illumination.as_() as f32).min(255.) as u8,
+            (material.color[1] as f32 * illumination.as_() as f32).min(255.) as u8,
+            (material.color[2] as f32 * illumination.as_() as f32).min(255.) as u8,
+        ])
     }
 }
 
@@ -292,12 +405,7 @@ impl Camera<f32> {
             let x = (x as f32) * self.scale - 1.;
             let y = -(y as f32) * self.scale + 1.;
             let dir = Pnt3(x, y, 0.) - self.origin;
-
-            if let Some(material) = scene.find_intersection(self.origin, dir) {
-                *pixel = material.color;
-            } else {
-                *pixel = image::Rgb([128u8, 128u8, 128u8]);
-            }
+            *pixel = scene.ray_color(self.origin, dir);
         }
 
         let t = time::Instant::now() - start;
