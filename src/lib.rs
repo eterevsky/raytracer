@@ -190,14 +190,20 @@ fn plane_ray_intersect4() {
 }
 
 #[derive(Clone, Copy)]
-pub struct Material {
-    pub color: image::Rgb<u8>
+pub struct Material<S: BaseFloat> {
+    pub color: image::Rgb<u8>,
+    pub diffusion: S,
+    pub reflection: S,
+    pub shininess: S,
 }
 
-impl Material {
+impl Material<f32> {
     pub fn new(r: f32, g: f32, b: f32) -> Self {
         Material {
-            color: image::Rgb([(r * 255.) as u8, (g * 255.) as u8, (b * 255.) as u8])
+            color: image::Rgb([(r * 255.) as u8, (g * 255.) as u8, (b * 255.) as u8]),
+            diffusion: 0.7,
+            reflection: 3.0,
+            shininess: 10.0,
         }
     }
 }
@@ -210,7 +216,7 @@ pub struct PointLight<S: BaseFloat> {
 pub struct Scene<S: BaseFloat> {
     spheres: Vec<(usize, Sphere<S>)>,
     planes: Vec<(usize, Plane<S>)>,
-    materials: Vec<Material>,
+    materials: Vec<Material<S>>,
     lights: Vec<PointLight<S>>,
 }
 
@@ -224,14 +230,14 @@ impl<S: BaseFloat> Scene<S> {
         }
     }
 
-    pub fn add_sphere(&mut self, sphere: Sphere<S>, material: Material) -> usize {
+    pub fn add_sphere(&mut self, sphere: Sphere<S>, material: Material<S>) -> usize {
         let id = self.materials.len();
         self.spheres.push((id, sphere));
         self.materials.push(material);
         id
     }
 
-    pub fn add_plane(&mut self, plane: Plane<S>, material: Material) -> usize {
+    pub fn add_plane(&mut self, plane: Plane<S>, material: Material<S>) -> usize {
         let id = self.materials.len();
         self.planes.push((id, plane));
         self.materials.push(material);
@@ -282,17 +288,33 @@ impl<S: BaseFloat + AsPrimitive<f32>> Scene<S> {
 
         let material = self.materials[id];
         let ipoint = origin + dir * (intersection.dist2 / dir.magnitude2()).sqrt();
+        let dir = dir.normalize();
         let mut illumination = S::zero();
         let normal = intersection.normal.normalize();
 
         for light in self.lights.iter() {
             let light_vec = light.position - ipoint;
+            let light_dir = light_vec.normalize();
             let (to_light_int, _) = self.find_intersection(ipoint, light_vec);
             if to_light_int.exists() { continue; }
             let dist2 = light_vec.magnitude2();
-            let prod = dot(normal, light_vec);
-            if prod <= S::default_epsilon() { continue; }
-            illumination = illumination + light.intensity * prod / dist2;
+            let diffusion_intensity = dot(normal, light_vec);
+            // Light is on the other side of the surface.
+            if diffusion_intensity <= S::default_epsilon() { continue; }
+
+            let reflect_vec = normal * (S::one() + S::one()) * dot(light_dir, normal) - light_dir;
+            let reflect_vec = reflect_vec.normalize();
+            let reflect_intensity = dot(reflect_vec, -dir);
+            let reflect_intensity = if reflect_intensity > S::zero() { reflect_intensity.powf(material.shininess) } else {S::zero()};
+
+            // dbg!(material.diffusion);
+            // assert_eq!(S::zero(), material.reflection * reflect_intensity);
+
+            let intensity1 = light.intensity / dist2 * diffusion_intensity;
+            let intensity2 =light.intensity / dist2 *
+                      (material.diffusion * diffusion_intensity +
+                       material.reflection * reflect_intensity);
+            illumination = illumination + intensity2;
         }
 
         image::Rgb([
