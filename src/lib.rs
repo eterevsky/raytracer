@@ -13,7 +13,7 @@ pub struct Intersection<S: BaseFloat> {
 impl<S: BaseFloat> Intersection<S> {
     pub fn no() -> Self {
         Intersection {
-            dist2: S::one(),
+            dist2: -S::one(),
             normal: Vector3::zero(),
         }
     }
