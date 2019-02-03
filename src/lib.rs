@@ -1,10 +1,16 @@
 use cgmath;
-use cgmath::num_traits::AsPrimitive;
-use cgmath::{abs_diff_eq, dot, AbsDiffEq, BaseFloat, InnerSpace, One, Point3, Vector3, Zero};
+use cgmath::num_traits::{cast::NumCast, AsPrimitive};
+use cgmath::{
+    abs_diff_eq, assert_relative_eq, dot, AbsDiffEq, BaseFloat, InnerSpace, One, Point3, Vector3,
+    Zero,
+};
 use image;
+use rand;
+use rand::distributions::Distribution;
 use std::cmp::{Ordering, PartialOrd};
 use std::time;
 
+#[derive(Debug)]
 pub struct Intersection<S: BaseFloat> {
     pub dist2: S,
     pub normal: Vector3<S>,
@@ -70,8 +76,12 @@ impl<S: BaseFloat> Sphere<S> {
 
 impl<S: BaseFloat> Shape<S> for Sphere<S> {
     fn ray_intersect(&self, origin: Point3<S>, dir: Vector3<S>) -> Intersection<S> {
+        // assert_relative_eq!(dir.magnitude2(), S::one());
         let to_center = self.center - origin;
         let p = dot(to_center, dir);
+        if p < S::zero() {
+            return Intersection::no();
+        }
         let projection2 = p * p / dir.magnitude2();
         let ray_dist2 = to_center.magnitude2() - projection2;
         let r2 = self.radius * self.radius;
@@ -193,15 +203,24 @@ pub struct Material<S: BaseFloat> {
     pub shininess: S,
 }
 
-impl Material<f32> {
-    pub fn new(r: f32, g: f32, b: f32) -> Self {
+impl<S: BaseFloat + AsPrimitive<f32>> Material<S> {
+    pub fn new(r: S, g: S, b: S) -> Self {
         Material {
-            color: image::Rgb([(r * 255.) as u8, (g * 255.) as u8, (b * 255.) as u8]),
-            diffusion: 0.7,
-            reflection: 3.0,
-            shininess: 10.0,
+            color: image::Rgb([
+                (r.as_() * 255.) as u8,
+                (g.as_() * 255.) as u8,
+                (b.as_() * 255.) as u8,
+            ]),
+            diffusion: S::from(1.0).unwrap(),
+            reflection: S::from(3.0).unwrap(),
+            shininess: S::from(10.0).unwrap(),
         }
     }
+}
+
+pub trait Light<S: BaseFloat> {
+    fn sample_ray<R: rand::Rng>(&self, from: Point3<S>, rng: &mut R) -> Vector3<S>;
+    fn intensity(&self) -> S;
 }
 
 pub struct PointLight<S: BaseFloat> {
@@ -209,11 +228,63 @@ pub struct PointLight<S: BaseFloat> {
     intensity: S,
 }
 
+impl<S: BaseFloat> Light<S> for PointLight<S> {
+    fn sample_ray<R: rand::Rng>(&self, from: Point3<S>, rng: &mut R) -> Vector3<S> {
+        self.position - from
+    }
+
+    fn intensity(&self) -> S {
+        self.intensity
+    }
+}
+
+pub struct SphereLight<S: BaseFloat> {
+    center: Point3<S>,
+    radius: S,
+    intensity: S,
+    sphere_dist: rand::distributions::UnitSphereSurface,
+}
+
+impl<S: BaseFloat> SphereLight<S> {
+    fn new(center: Point3<S>, radius: S, intensity: S) -> Self {
+        SphereLight {
+            center,
+            radius,
+            intensity,
+            sphere_dist: rand::distributions::UnitSphereSurface::new(),
+        }
+    }
+}
+
+impl<S: BaseFloat> Light<S> for SphereLight<S> {
+    fn sample_ray<R: rand::Rng>(&self, from: Point3<S>, rng: &mut R) -> Vector3<S> {
+        let unit = self.sphere_dist.sample(rng);
+        let x = S::from(unit[0]).unwrap();
+        let y = S::from(unit[1]).unwrap();
+        let z = S::from(unit[2]).unwrap();
+        let unit = Vector3::new(x, y, z);
+        assert!((unit.magnitude2() - S::one()).abs() < S::from(0.00001).unwrap());
+        let to_center = self.center - from;
+        // let unit = if dot(unit, to_center) > S::zero() {
+        //     -unit
+        // } else {
+        //     unit
+        // };
+        let sphere_point = self.center + unit * self.radius;
+        sphere_point - from
+    }
+
+    fn intensity(&self) -> S {
+        self.intensity
+    }
+}
+
 pub struct Scene<S: BaseFloat> {
     spheres: Vec<(usize, Sphere<S>)>,
     planes: Vec<(usize, Plane<S>)>,
     materials: Vec<Material<S>>,
-    lights: Vec<PointLight<S>>,
+    point_lights: Vec<PointLight<S>>,
+    sphere_lights: Vec<SphereLight<S>>,
 }
 
 impl<S: BaseFloat> Scene<S> {
@@ -222,7 +293,8 @@ impl<S: BaseFloat> Scene<S> {
             spheres: Vec::new(),
             planes: Vec::new(),
             materials: Vec::new(),
-            lights: Vec::new(),
+            point_lights: Vec::new(),
+            sphere_lights: Vec::new(),
         }
     }
 
@@ -240,11 +312,16 @@ impl<S: BaseFloat> Scene<S> {
         id
     }
 
-    pub fn add_light(&mut self, position: Point3<S>, intensity: S) {
-        self.lights.push(PointLight {
+    pub fn add_point_light(&mut self, position: Point3<S>, intensity: S) {
+        self.point_lights.push(PointLight {
             position,
             intensity,
-        })
+        });
+    }
+
+    pub fn add_sphere_light(&mut self, center: Point3<S>, radius: S, intensity: S) {
+        self.sphere_lights
+            .push(SphereLight::new(center, radius, intensity))
     }
 
     pub fn find_intersection(
@@ -283,27 +360,28 @@ impl<S: BaseFloat> Scene<S> {
 }
 
 impl<S: BaseFloat + AsPrimitive<f32>> Scene<S> {
-    pub fn ray_color(&self, origin: Point3<S>, dir: Vector3<S>) -> image::Rgb<u8> {
-        let (intersection, id) = self.find_intersection(origin, dir);
-        if !intersection.exists() {
-            return image::Rgb([0, 0, 0]);
-        }
-
-        let material = self.materials[id];
-        let ipoint = origin + dir * (intersection.dist2 / dir.magnitude2()).sqrt();
-        let dir = dir.normalize();
-        let mut illumination = S::zero();
-        let normal = intersection.normal.normalize();
-
-        for light in self.lights.iter() {
-            let light_vec = light.position - ipoint;
+    fn illumination_from_light<L: Light<S>>(
+        &self,
+        point: Point3<S>,
+        normal: Vector3<S>,
+        dir: Vector3<S>,
+        material: &Material<S>,
+        light: &L,
+        samples: u32,
+    ) -> S {
+        let mut total = S::zero();
+        let mut rng = rand::thread_rng();
+        for _ in 0..samples {
+            let light_vec = light.sample_ray(point, &mut rng);
             let light_dir = light_vec.normalize();
-            let (to_light_int, _) = self.find_intersection(ipoint, light_vec);
-            if to_light_int.exists() {
+            let expanded = point + normal * S::from(0.001).unwrap();
+            let (to_light_int, _) = self.find_intersection(expanded, light_dir);
+            if to_light_int.exists()  {
+                let light_point = point + light_vec;
                 continue;
             }
             let dist2 = light_vec.magnitude2();
-            let diffusion_intensity = dot(normal, light_vec);
+            let diffusion_intensity = dot(normal, light_dir);
             // Light is on the other side of the surface.
             if diffusion_intensity <= S::default_epsilon() {
                 continue;
@@ -318,14 +396,32 @@ impl<S: BaseFloat + AsPrimitive<f32>> Scene<S> {
                 S::zero()
             };
 
-            // dbg!(material.diffusion);
-            // assert_eq!(S::zero(), material.reflection * reflect_intensity);
-
-            let intensity1 = light.intensity / dist2 * diffusion_intensity;
-            let intensity2 = light.intensity / dist2
+            total += light.intensity() / dist2
                 * (material.diffusion * diffusion_intensity
-                    + material.reflection * reflect_intensity);
-            illumination = illumination + intensity2;
+                    + material.reflection * reflect_intensity)
+        }
+
+        total / S::from(samples).unwrap()
+    }
+
+    pub fn ray_color(&self, origin: Point3<S>, dir: Vector3<S>) -> image::Rgb<u8> {
+        let (intersection, id) = self.find_intersection(origin, dir);
+        if !intersection.exists() {
+            return image::Rgb([0, 0, 0]);
+        }
+
+        let material = self.materials[id];
+        let ipoint = origin + dir * (intersection.dist2 / dir.magnitude2()).sqrt();
+        let dir = dir.normalize();
+        let mut illumination = S::zero();
+        let normal = intersection.normal.normalize();
+
+        for light in self.point_lights.iter() {
+            illumination += self.illumination_from_light(ipoint, normal, dir, &material, light, 1);
+        }
+
+        for light in self.sphere_lights.iter() {
+            illumination += self.illumination_from_light(ipoint, normal, dir, &material, light, 400);
         }
 
         image::Rgb([
@@ -343,27 +439,28 @@ pub struct Camera<S: BaseFloat> {
     origin: Point3<S>,
 }
 
-impl Camera<f32> {
+impl<S: BaseFloat + AsPrimitive<f32>> Camera<S> {
     // `fov` -- vertical field of view, horizontal field of view scales with
-    pub fn new(w: u32, h: u32, origin: Point3<f32>) -> Self {
+    pub fn new(w: u32, h: u32, origin: Point3<S>) -> Self {
         Camera {
             w,
             h,
             origin,
-            scale: 2. / (h as f32),
+            scale: (S::one() + S::one()) / S::from(h).unwrap(),
         }
     }
 
-    pub fn render(&self, scene: &Scene<f32>) -> image::ImageBuffer<image::Rgb<u8>, Vec<u8>> {
+    pub fn render(&self, scene: &Scene<S>) -> image::ImageBuffer<image::Rgb<u8>, Vec<u8>> {
         let mut image = image::ImageBuffer::new(self.w, self.h);
         let start = time::Instant::now();
         let mut rays: u64 = 0;
 
         for (x, y, pixel) in image.enumerate_pixels_mut() {
             rays += 1;
-            let x = (x as f32) * self.scale - 1.;
-            let y = -(y as f32) * self.scale + 1.;
-            let dir = Point3::new(x, y, 0.) - self.origin;
+            let x = S::from(x).unwrap() * self.scale - S::one();
+            let y = -S::from(y).unwrap() * self.scale + S::one();
+            let dir = Point3::new(x, y, S::zero()) - self.origin;
+            let dir = dir.normalize();
             *pixel = scene.ray_color(self.origin, dir);
         }
 
