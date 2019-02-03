@@ -1,6 +1,6 @@
 use cgmath;
-use cgmath::{AbsDiffEq, BaseFloat, InnerSpace, One, Point3, Vector3, Zero, abs_diff_eq, dot};
 use cgmath::num_traits::AsPrimitive;
+use cgmath::{abs_diff_eq, dot, AbsDiffEq, BaseFloat, InnerSpace, One, Point3, Vector3, Zero};
 use image;
 use std::cmp::{Ordering, PartialOrd};
 use std::time;
@@ -19,13 +19,12 @@ impl<S: BaseFloat> Intersection<S> {
     }
 
     pub fn new(dist2: S, normal: Vector3<S>) -> Self {
-        Intersection {
-            dist2,
-            normal,
-        }
+        Intersection { dist2, normal }
     }
 
-    pub fn exists(&self) -> bool { self.dist2 >= S::zero() }
+    pub fn exists(&self) -> bool {
+        self.dist2 >= S::zero()
+    }
 }
 
 impl<S: BaseFloat> PartialEq for Intersection<S> {
@@ -65,10 +64,7 @@ pub struct Sphere<S: BaseFloat> {
 
 impl<S: BaseFloat> Sphere<S> {
     pub fn new(center: Point3<S>, radius: S) -> Self {
-        Sphere {
-            center,
-            radius,
-        }
+        Sphere { center, radius }
     }
 }
 
@@ -226,7 +222,7 @@ impl<S: BaseFloat> Scene<S> {
             spheres: Vec::new(),
             planes: Vec::new(),
             materials: Vec::new(),
-            lights: Vec::new()
+            lights: Vec::new(),
         }
     }
 
@@ -245,10 +241,17 @@ impl<S: BaseFloat> Scene<S> {
     }
 
     pub fn add_light(&mut self, position: Point3<S>, intensity: S) {
-        self.lights.push(PointLight{position, intensity})
+        self.lights.push(PointLight {
+            position,
+            intensity,
+        })
     }
 
-    pub fn find_intersection(&self, origin: Point3<S>, dir: Vector3<S>) -> (Intersection<S>, usize) {
+    pub fn find_intersection(
+        &self,
+        origin: Point3<S>,
+        dir: Vector3<S>,
+    ) -> (Intersection<S>, usize) {
         let mut best_idx = 0;
         let mut nearest = Intersection::no();
         // for idx in 0..self.shapes.len() {
@@ -296,24 +299,32 @@ impl<S: BaseFloat + AsPrimitive<f32>> Scene<S> {
             let light_vec = light.position - ipoint;
             let light_dir = light_vec.normalize();
             let (to_light_int, _) = self.find_intersection(ipoint, light_vec);
-            if to_light_int.exists() { continue; }
+            if to_light_int.exists() {
+                continue;
+            }
             let dist2 = light_vec.magnitude2();
             let diffusion_intensity = dot(normal, light_vec);
             // Light is on the other side of the surface.
-            if diffusion_intensity <= S::default_epsilon() { continue; }
+            if diffusion_intensity <= S::default_epsilon() {
+                continue;
+            }
 
             let reflect_vec = normal * (S::one() + S::one()) * dot(light_dir, normal) - light_dir;
             let reflect_vec = reflect_vec.normalize();
             let reflect_intensity = dot(reflect_vec, -dir);
-            let reflect_intensity = if reflect_intensity > S::zero() { reflect_intensity.powf(material.shininess) } else {S::zero()};
+            let reflect_intensity = if reflect_intensity > S::zero() {
+                reflect_intensity.powf(material.shininess)
+            } else {
+                S::zero()
+            };
 
             // dbg!(material.diffusion);
             // assert_eq!(S::zero(), material.reflection * reflect_intensity);
 
             let intensity1 = light.intensity / dist2 * diffusion_intensity;
-            let intensity2 =light.intensity / dist2 *
-                      (material.diffusion * diffusion_intensity +
-                       material.reflection * reflect_intensity);
+            let intensity2 = light.intensity / dist2
+                * (material.diffusion * diffusion_intensity
+                    + material.reflection * reflect_intensity);
             illumination = illumination + intensity2;
         }
 
@@ -333,11 +344,13 @@ pub struct Camera<S: BaseFloat> {
 }
 
 impl Camera<f32> {
-    // `fov` -- vertical field of view, horizontal field of view scales with 
+    // `fov` -- vertical field of view, horizontal field of view scales with
     pub fn new(w: u32, h: u32, origin: Point3<f32>) -> Self {
         Camera {
-            w, h, origin,
-            scale: 2. / (h as f32)
+            w,
+            h,
+            origin,
+            scale: 2. / (h as f32),
         }
     }
 
