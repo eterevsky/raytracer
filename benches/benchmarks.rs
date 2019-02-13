@@ -2,7 +2,7 @@ use cgmath::{Point3, Vector3, Zero};
 use criterion::Criterion;
 use criterion::{criterion_group, criterion_main};
 
-use rt::*;
+use raytracer::*;
 
 fn sphere_ray(c: &mut Criterion) {
     c.bench_function(

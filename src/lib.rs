@@ -1,199 +1,20 @@
 use cgmath;
-use cgmath::num_traits::{cast::NumCast, AsPrimitive};
-use cgmath::{
-    abs_diff_eq, assert_relative_eq, dot, AbsDiffEq, BaseFloat, InnerSpace, One, Point3, Vector3,
-    Zero,
-};
+use cgmath::num_traits::AsPrimitive;
+use cgmath::{dot, BaseFloat, InnerSpace, Point3, Vector3};
 use image;
 use rand;
-use rand::distributions::Distribution;
-use std::cmp::{Ordering, PartialOrd};
 use std::time;
 
-#[derive(Debug)]
-pub struct Intersection<S: BaseFloat> {
-    pub dist2: S,
-    pub normal: Vector3<S>,
-}
+mod light;
+mod plane;
+mod shape;
+mod sphere;
 
-impl<S: BaseFloat> Intersection<S> {
-    pub fn no() -> Self {
-        Intersection {
-            dist2: -S::one(),
-            normal: Vector3::zero(),
-        }
-    }
+pub use self::light::{Light, PointLight, SphereLight};
+pub use self::plane::Plane;
+pub use self::shape::{Intersection, Shape};
+pub use self::sphere::Sphere;
 
-    pub fn new(dist2: S, normal: Vector3<S>) -> Self {
-        Intersection { dist2, normal }
-    }
-
-    pub fn exists(&self) -> bool {
-        self.dist2 >= S::zero()
-    }
-}
-
-impl<S: BaseFloat> PartialEq for Intersection<S> {
-    fn eq(&self, other: &Intersection<S>) -> bool {
-        self.exists() && other.exists() && self.dist2 == other.dist2
-    }
-}
-
-impl<S: BaseFloat> PartialOrd for Intersection<S> {
-    fn partial_cmp(&self, other: &Intersection<S>) -> Option<Ordering> {
-        if self.exists() {
-            if other.exists() {
-                self.dist2.partial_cmp(&other.dist2)
-            } else {
-                Some(Ordering::Less)
-            }
-        } else {
-            if other.exists() {
-                Some(Ordering::Greater)
-            } else {
-                None
-            }
-        }
-    }
-}
-
-pub trait Shape<S: BaseFloat> {
-    // Returns negative value if there is no intersection, or the square distance to
-    // the intersection if there is one.
-    fn ray_intersect(&self, origin: Point3<S>, dir: Vector3<S>) -> Intersection<S>;
-}
-
-pub struct Sphere<S: BaseFloat> {
-    center: Point3<S>,
-    radius: S,
-}
-
-impl<S: BaseFloat> Sphere<S> {
-    pub fn new(center: Point3<S>, radius: S) -> Self {
-        Sphere { center, radius }
-    }
-}
-
-impl<S: BaseFloat> Shape<S> for Sphere<S> {
-    fn ray_intersect(&self, origin: Point3<S>, dir: Vector3<S>) -> Intersection<S> {
-        // assert_relative_eq!(dir.magnitude2(), S::one());
-        let to_center = self.center - origin;
-        let p = dot(to_center, dir);
-        if p < S::zero() {
-            return Intersection::no();
-        }
-        let projection2 = p * p / dir.magnitude2();
-        let ray_dist2 = to_center.magnitude2() - projection2;
-        let r2 = self.radius * self.radius;
-        if ray_dist2 > r2 {
-            return Intersection::no();
-        }
-        let seg2 = r2 - ray_dist2;
-        if projection2 < seg2 {
-            return Intersection::no();
-        }
-        let four = S::one() + S::one() + S::one() + S::one();
-        let dist2 = projection2 + seg2 - (four * projection2 * seg2).sqrt();
-        if dist2 < S::default_epsilon() {
-            return Intersection::no();
-        }
-        let to_intersect = dir * (dist2 / dir.magnitude2()).sqrt();
-        Intersection::new(dist2, to_intersect - to_center)
-    }
-}
-
-#[test]
-fn sphere_ray_intersect1() {
-    let sphere = Sphere::new(Point3::new(0., 0., 2.), 1.);
-    let intersection = sphere.ray_intersect(Point3::new(0., 0., 0.), Vector3::new(0., 0., 1.));
-    assert_eq!(intersection.dist2, 1.)
-}
-
-#[test]
-fn sphere_ray_intersect2() {
-    let sphere = Sphere::new(Point3::new(0., 0., 3.), 1.);
-    let intersection = sphere.ray_intersect(Point3::new(0., 0., 0.), Vector3::new(0., 0., 1.));
-    assert_eq!(intersection.dist2, 4.)
-}
-
-#[test]
-fn sphere_ray_intersect3() {
-    let sphere = Sphere::new(Point3::new(0., 0., 2.), 1.);
-    let intersection = sphere.ray_intersect(Point3::new(0., 0., 0.), Vector3::new(0., 0., 1.));
-    assert_eq!(intersection.dist2, 1.)
-}
-
-#[test]
-fn sphere_ray_intersect4() {
-    let sphere = Sphere::new(Point3::new(0., 0., 3.), 1.);
-    let intersection = sphere.ray_intersect(Point3::new(0., 0., 0.), Vector3::new(0., 0., 1.));
-    assert_eq!(intersection.dist2, 4.)
-}
-
-#[test]
-fn sphere_ray_intersect5() {
-    let sphere = Sphere::new(Point3::new(0., 0., 3.), 1.);
-    let intersection1 = sphere.ray_intersect(Point3::new(0., 0., 0.), Vector3::new(0., -1., 3.));
-    let intersection2 = sphere.ray_intersect(Point3::new(0., 0., 0.), Vector3::new(0., -0.5, 1.5));
-    assert_eq!(intersection1.dist2, intersection2.dist2);
-    assert!(intersection1.dist2 < 6.5);
-    assert!(intersection1.dist2 > 6.3);
-}
-
-pub struct Plane<S: BaseFloat> {
-    point: Point3<S>,
-    normal: Vector3<S>,
-}
-
-impl<S: BaseFloat> Plane<S> {
-    pub fn new(point: Point3<S>, normal: Vector3<S>) -> Self {
-        Plane { point, normal }
-    }
-}
-
-impl<S: BaseFloat> Shape<S> for Plane<S> {
-    fn ray_intersect(&self, origin: Point3<S>, dir: Vector3<S>) -> Intersection<S> {
-        let dir_proj = dot(dir, self.normal);
-        if abs_diff_eq!(dir_proj, S::zero()) {
-            return Intersection::no();
-        }
-        let point_proj = dot(self.point - origin, self.normal);
-        let ratio = point_proj / dir_proj;
-        if ratio < S::default_epsilon() {
-            return Intersection::no();
-        }
-        let dist2 = ratio * ratio * dir.magnitude2();
-        Intersection::new(dist2, self.normal)
-    }
-}
-
-#[test]
-fn plane_ray_intersect1() {
-    let plane = Plane::new(Point3::new(0., 0., 1.), Vector3::new(0., 0., -1.));
-    let intersection = plane.ray_intersect(Point3::new(0., 0., 0.), Vector3::new(0., 0., 1.));
-    assert_eq!(intersection.dist2, 1.)
-}
-
-#[test]
-fn plane_ray_intersect2() {
-    let plane = Plane::new(Point3::new(0., 0., 1.), Vector3::new(0., 0., -2.));
-    let intersection = plane.ray_intersect(Point3::new(0., 0., 0.), Vector3::new(0., 0., 1.));
-    assert_eq!(intersection.dist2, 1.)
-}
-
-#[test]
-fn plane_ray_intersect3() {
-    let plane = Plane::new(Point3::new(0., 0., 2.), Vector3::new(0., 0., -1.));
-    let intersection = plane.ray_intersect(Point3::new(0., 0., 0.), Vector3::new(0., 0., 1.));
-    assert_eq!(intersection.dist2, 4.)
-}
-
-#[test]
-fn plane_ray_intersect4() {
-    let plane = Plane::new(Point3::new(0., -1., 0.), Vector3::new(0., 1., 0.));
-    let intersection = plane.ray_intersect(Point3::new(0., 0., -1.), Vector3::new(0., -0.5, 2.));
-    assert_eq!(intersection.dist2, 17.);
-}
 
 #[derive(Clone, Copy)]
 pub struct Material<S: BaseFloat> {
@@ -215,67 +36,6 @@ impl<S: BaseFloat + AsPrimitive<f32>> Material<S> {
             reflection: S::from(3.0).unwrap(),
             shininess: S::from(10.0).unwrap(),
         }
-    }
-}
-
-pub trait Light<S: BaseFloat> {
-    fn sample_ray<R: rand::Rng>(&self, from: Point3<S>, rng: &mut R) -> Vector3<S>;
-    fn intensity(&self) -> S;
-}
-
-pub struct PointLight<S: BaseFloat> {
-    position: Point3<S>,
-    intensity: S,
-}
-
-impl<S: BaseFloat> Light<S> for PointLight<S> {
-    fn sample_ray<R: rand::Rng>(&self, from: Point3<S>, rng: &mut R) -> Vector3<S> {
-        self.position - from
-    }
-
-    fn intensity(&self) -> S {
-        self.intensity
-    }
-}
-
-pub struct SphereLight<S: BaseFloat> {
-    center: Point3<S>,
-    radius: S,
-    intensity: S,
-    sphere_dist: rand::distributions::UnitSphereSurface,
-}
-
-impl<S: BaseFloat> SphereLight<S> {
-    fn new(center: Point3<S>, radius: S, intensity: S) -> Self {
-        SphereLight {
-            center,
-            radius,
-            intensity,
-            sphere_dist: rand::distributions::UnitSphereSurface::new(),
-        }
-    }
-}
-
-impl<S: BaseFloat> Light<S> for SphereLight<S> {
-    fn sample_ray<R: rand::Rng>(&self, from: Point3<S>, rng: &mut R) -> Vector3<S> {
-        let unit = self.sphere_dist.sample(rng);
-        let x = S::from(unit[0]).unwrap();
-        let y = S::from(unit[1]).unwrap();
-        let z = S::from(unit[2]).unwrap();
-        let unit = Vector3::new(x, y, z);
-        assert!((unit.magnitude2() - S::one()).abs() < S::from(0.00001).unwrap());
-        let to_center = self.center - from;
-        // let unit = if dot(unit, to_center) > S::zero() {
-        //     -unit
-        // } else {
-        //     unit
-        // };
-        let sphere_point = self.center + unit * self.radius;
-        sphere_point - from
-    }
-
-    fn intensity(&self) -> S {
-        self.intensity
     }
 }
 
@@ -313,10 +73,7 @@ impl<S: BaseFloat> Scene<S> {
     }
 
     pub fn add_point_light(&mut self, position: Point3<S>, intensity: S) {
-        self.point_lights.push(PointLight {
-            position,
-            intensity,
-        });
+        self.point_lights.push(PointLight::new(position, intensity));
     }
 
     pub fn add_sphere_light(&mut self, center: Point3<S>, radius: S, intensity: S) {
@@ -377,7 +134,6 @@ impl<S: BaseFloat + AsPrimitive<f32>> Scene<S> {
             let expanded = point + normal * S::from(0.001).unwrap();
             let (to_light_int, _) = self.find_intersection(expanded, light_dir);
             if to_light_int.exists()  {
-                let light_point = point + light_vec;
                 continue;
             }
             let dist2 = light_vec.magnitude2();

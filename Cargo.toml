@@ -5,7 +5,7 @@ authors = ["olege"]
 edition = "2018"
 
 [lib]
-name = "rt"
+name = "raytracer"
 path = "src/lib.rs"
 
 [dependencies]

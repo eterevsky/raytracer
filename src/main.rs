@@ -1,6 +1,6 @@
 use cgmath::{Point3, Vector3};
 
-use rt::*;
+use raytracer::*;
 
 fn main() {
     let mut scene: Scene<f32> = Scene::new();
