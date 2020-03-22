@@ -1,5 +1,5 @@
 use cgmath::{BaseFloat, Point3, Vector3};
-use rand::distributions::Distribution;
+use rand_distr::{UnitSphere, Distribution};
 
 pub trait Light<S: BaseFloat> {
     fn sample_ray<R: rand::Rng>(&self, from: Point3<S>, rng: &mut R) -> Vector3<S>;
@@ -31,7 +31,6 @@ pub struct SphereLight<S: BaseFloat> {
     center: Point3<S>,
     radius: S,
     intensity: S,
-    sphere_dist: rand::distributions::UnitSphereSurface,
 }
 
 impl<S: BaseFloat> SphereLight<S> {
@@ -40,14 +39,13 @@ impl<S: BaseFloat> SphereLight<S> {
             center,
             radius,
             intensity,
-            sphere_dist: rand::distributions::UnitSphereSurface::new(),
         }
     }
 }
 
 impl<S: BaseFloat> Light<S> for SphereLight<S> {
     fn sample_ray<R: rand::Rng>(&self, from: Point3<S>, rng: &mut R) -> Vector3<S> {
-        let unit = self.sphere_dist.sample(rng);
+        let unit: [f32; 3] = UnitSphere.sample(rng);
         let x = S::from(unit[0]).unwrap();
         let y = S::from(unit[1]).unwrap();
         let z = S::from(unit[2]).unwrap();

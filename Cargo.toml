@@ -12,6 +12,7 @@ path = "src/lib.rs"
 cgmath = "*"
 image = "*"
 rand = "*"
+rand_distr = "*"
 
 [dev-dependencies]
 criterion = "*"

@@ -18,23 +18,21 @@ pub use self::sphere::Sphere;
 
 #[derive(Clone, Copy)]
 pub struct Material<S: BaseFloat> {
-    pub color: image::Rgb<u8>,
+    pub color: image::Rgb<f32>,
     pub diffusion: S,
     pub reflection: S,
     pub shininess: S,
+    pub mirror: bool,
 }
 
 impl<S: BaseFloat + AsPrimitive<f32>> Material<S> {
     pub fn new(r: S, g: S, b: S) -> Self {
         Material {
-            color: image::Rgb([
-                (r.as_() * 255.) as u8,
-                (g.as_() * 255.) as u8,
-                (b.as_() * 255.) as u8,
-            ]),
+            color: image::Rgb([r.as_() as f32, g.as_() as f32, b.as_() as f32]),
             diffusion: S::from(1.0).unwrap(),
             reflection: S::from(3.0).unwrap(),
             shininess: S::from(10.0).unwrap(),
+            mirror: false,
         }
     }
 }
@@ -130,10 +128,11 @@ impl<S: BaseFloat + AsPrimitive<f32>> Scene<S> {
         let mut rng = rand::thread_rng();
         for _ in 0..samples {
             let light_vec = light.sample_ray(point, &mut rng);
+            let light_dist2 = light_vec.magnitude2();
             let light_dir = light_vec.normalize();
             let expanded = point + normal * S::from(0.001).unwrap();
             let (to_light_int, _) = self.find_intersection(expanded, light_dir);
-            if to_light_int.exists()  {
+            if to_light_int.exists() && to_light_int.dist2 < light_dist2 {
                 continue;
             }
             let dist2 = light_vec.magnitude2();
@@ -177,13 +176,13 @@ impl<S: BaseFloat + AsPrimitive<f32>> Scene<S> {
         }
 
         for light in self.sphere_lights.iter() {
-            illumination += self.illumination_from_light(ipoint, normal, dir, &material, light, 400);
+            illumination += self.illumination_from_light(ipoint, normal, dir, &material, light, 100);
         }
 
         image::Rgb([
-            (material.color[0] as f32 * illumination.as_() as f32).min(255.) as u8,
-            (material.color[1] as f32 * illumination.as_() as f32).min(255.) as u8,
-            (material.color[2] as f32 * illumination.as_() as f32).min(255.) as u8,
+            ((material.color[0] * illumination.as_() as f32).min(1.) * 255.) as u8,
+            ((material.color[1] * illumination.as_() as f32).min(1.) * 255.) as u8,
+            ((material.color[2] * illumination.as_() as f32).min(1.) * 255.) as u8,
         ])
     }
 }
@@ -196,7 +195,6 @@ pub struct Camera<S: BaseFloat> {
 }
 
 impl<S: BaseFloat + AsPrimitive<f32>> Camera<S> {
-    // `fov` -- vertical field of view, horizontal field of view scales with
     pub fn new(w: u32, h: u32, origin: Point3<S>) -> Self {
         Camera {
             w,
