@@ -1,23 +1,23 @@
 use crate::shape::{Intersection, Shape};
-use cgmath::{dot, BaseFloat, InnerSpace, Point3, Vector3};
+use cgmath::{dot, InnerSpace, Point3, Vector3};
 
-pub struct Sphere<S: BaseFloat> {
-    center: Point3<S>,
-    radius: S,
+pub struct Sphere {
+    center: Point3<f32>,
+    radius: f32,
 }
 
-impl<S: BaseFloat> Sphere<S> {
-    pub fn new(center: Point3<S>, radius: S) -> Self {
+impl Sphere {
+    pub fn new(center: Point3<f32>, radius: f32) -> Self {
         Sphere { center, radius }
     }
 }
 
-impl<S: BaseFloat> Shape<S> for Sphere<S> {
-    fn ray_intersect(&self, origin: Point3<S>, dir: Vector3<S>) -> Intersection<S> {
+impl Shape for Sphere {
+    fn ray_intersect(&self, origin: Point3<f32>, dir: Vector3<f32>) -> Intersection {
         // assert_relative_eq!(dir.magnitude2(), S::one());
         let to_center = self.center - origin;
         let p = dot(to_center, dir);
-        if p < S::zero() {
+        if p < 0. {
             return Intersection::no();
         }
         let projection2 = p * p / dir.magnitude2();
@@ -30,9 +30,8 @@ impl<S: BaseFloat> Shape<S> for Sphere<S> {
         if projection2 < seg2 {
             return Intersection::no();
         }
-        let four = S::one() + S::one() + S::one() + S::one();
-        let dist2 = projection2 + seg2 - (four * projection2 * seg2).sqrt();
-        if dist2 < S::default_epsilon() {
+        let dist2 = projection2 + seg2 - (4. * projection2 * seg2).sqrt();
+        if dist2 < 1E-6 {
             return Intersection::no();
         }
         let to_intersect = dir * (dist2 / dir.magnitude2()).sqrt();

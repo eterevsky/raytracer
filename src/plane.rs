@@ -1,26 +1,26 @@
-use cgmath::{abs_diff_eq, dot, BaseFloat, InnerSpace, Point3, Vector3};
+use cgmath::{abs_diff_eq, dot, InnerSpace, Point3, Vector3};
 use crate::shape::{Intersection, Shape};
 
-pub struct Plane<S: BaseFloat> {
-    point: Point3<S>,
-    normal: Vector3<S>,
+pub struct Plane {
+    point: Point3<f32>,
+    normal: Vector3<f32>,
 }
 
-impl<S: BaseFloat> Plane<S> {
-    pub fn new(point: Point3<S>, normal: Vector3<S>) -> Self {
+impl Plane {
+    pub fn new(point: Point3<f32>, normal: Vector3<f32>) -> Self {
         Plane { point, normal }
     }
 }
 
-impl<S: BaseFloat> Shape<S> for Plane<S> {
-    fn ray_intersect(&self, origin: Point3<S>, dir: Vector3<S>) -> Intersection<S> {
+impl Shape for Plane {
+    fn ray_intersect(&self, origin: Point3<f32>, dir: Vector3<f32>) -> Intersection {
         let dir_proj = dot(dir, self.normal);
-        if abs_diff_eq!(dir_proj, S::zero()) {
+        if abs_diff_eq!(dir_proj, 0.) {
             return Intersection::no();
         }
         let point_proj = dot(self.point - origin, self.normal);
         let ratio = point_proj / dir_proj;
-        if ratio < S::default_epsilon() {
+        if ratio < 1E-6 {
             return Intersection::no();
         }
         let dist2 = ratio * ratio * dir.magnitude2();

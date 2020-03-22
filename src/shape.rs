@@ -1,37 +1,37 @@
-use cgmath::{BaseFloat, Point3, Vector3, Zero};
+use cgmath::{Point3, Vector3, Zero};
 use std::cmp::{Ordering, PartialOrd};
 
 #[derive(Debug)]
-pub struct Intersection<S: BaseFloat> {
-    pub dist2: S,
-    pub normal: Vector3<S>,
+pub struct Intersection {
+    pub dist2: f32,
+    pub normal: Vector3<f32>,
 }
 
-impl<S: BaseFloat> Intersection<S> {
+impl Intersection {
     pub fn no() -> Self {
         Intersection {
-            dist2: -S::one(),
+            dist2: -1.,
             normal: Vector3::zero(),
         }
     }
 
-    pub fn new(dist2: S, normal: Vector3<S>) -> Self {
+    pub fn new(dist2: f32, normal: Vector3<f32>) -> Self {
         Intersection { dist2, normal }
     }
 
     pub fn exists(&self) -> bool {
-        self.dist2 >= S::zero()
+        self.dist2 >= 0.
     }
 }
 
-impl<S: BaseFloat> PartialEq for Intersection<S> {
-    fn eq(&self, other: &Intersection<S>) -> bool {
+impl PartialEq for Intersection {
+    fn eq(&self, other: &Intersection) -> bool {
         self.exists() && other.exists() && self.dist2 == other.dist2
     }
 }
 
-impl<S: BaseFloat> PartialOrd for Intersection<S> {
-    fn partial_cmp(&self, other: &Intersection<S>) -> Option<Ordering> {
+impl PartialOrd for Intersection {
+    fn partial_cmp(&self, other: &Intersection) -> Option<Ordering> {
         if self.exists() {
             if other.exists() {
                 self.dist2.partial_cmp(&other.dist2)
@@ -48,9 +48,9 @@ impl<S: BaseFloat> PartialOrd for Intersection<S> {
     }
 }
 
-pub trait Shape<S: BaseFloat> {
+pub trait Shape {
     // Returns negative value if there is no intersection, or the square distance to
     // the intersection if there is one.
-    fn ray_intersect(&self, origin: Point3<S>, dir: Vector3<S>) -> Intersection<S>;
+    fn ray_intersect(&self, origin: Point3<f32>, dir: Vector3<f32>) -> Intersection;
 }
 

@@ -1,9 +1,9 @@
-use cgmath::{Point3, Vector3, InnerSpace};
+use cgmath::{Point3, Vector3};
 
 use raytracer::*;
 
 fn main() {
-    let mut scene: Scene<f32> = Scene::new();
+    let mut scene = Scene::new();
     scene.add_plane(Plane::new(Point3::new(0., -1., 0.), Vector3::new(0., 1., 0.)), Material::new(0.8, 0.8, 0.8));
 
     scene.add_sphere(Sphere::new(Point3::new(0.0, 0.0, -3.), 1.), Material::new(0.75, 0.25, 0.25));
