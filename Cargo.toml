@@ -1,8 +1,9 @@
 [package]
 name = "raytracer"
 version = "0.1.0"
-authors = ["olege"]
+authors = ["oleg@eterevsky.com"]
 edition = "2018"
+repository = "https://github.com/eterevsky/raytracer"
 
 [lib]
 name = "raytracer"
