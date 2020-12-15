@@ -11,7 +11,7 @@ path = "src/lib.rs"
 
 [dependencies]
 cgmath = "*"
-image = "*"
+image = {version = "*", features = ["png"]}
 rand = "*"
 rand_distr = "*"
 
