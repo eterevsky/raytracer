@@ -11,3 +11,4 @@ pub use self::scene::Scene;
 pub use self::plane::Plane;
 pub use self::sphere::Sphere;
 pub use self::material::Material;
+pub use self::shape::Shape;
