@@ -15,6 +15,7 @@ pub struct Scene {
     materials: Vec<Material>,
     point_lights: Vec<PointLight>,
     sphere_lights: Vec<SphereLight>,
+    sphere_light_samples: u32,
 }
 
 impl Scene {
@@ -25,6 +26,7 @@ impl Scene {
             materials: Vec::new(),
             point_lights: Vec::new(),
             sphere_lights: Vec::new(),
+            sphere_light_samples: 100,
         }
     }
 
@@ -51,6 +53,11 @@ impl Scene {
             .push(SphereLight::new(center, radius, intensity))
     }
 
+    pub fn set_sphere_light_samples(mut self, value: u32) -> Self {
+        self.sphere_light_samples = value;
+        self
+    }
+
     pub fn find_intersection(
         &self,
         origin: Point3<f32>,
@@ -58,13 +65,6 @@ impl Scene {
     ) -> (Intersection, usize) {
         let mut best_idx = 0;
         let mut nearest = Intersection::no();
-        // for idx in 0..self.shapes.len() {
-        //     let distance = self.shapes[idx].ray_intersect(origin, dir);
-        //     if distance > zero() && distance < nearest {
-        //         nearest = distance;
-        //         best_idx = Some(idx);
-        //     }
-        // }
 
         for (id, sphere) in self.spheres.iter() {
             let intersection = sphere.ray_intersect(origin, dir);
@@ -146,7 +146,14 @@ impl Scene {
         }
 
         for light in self.sphere_lights.iter() {
-            illumination += self.illumination_from_light(ipoint, normal, dir, &material, light, 100);
+            illumination += self.illumination_from_light(
+                ipoint,
+                normal,
+                dir,
+                &material,
+                light,
+                self.sphere_light_samples,
+            );
         }
 
         image::Rgb([
