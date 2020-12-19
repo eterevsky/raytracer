@@ -1,4 +1,5 @@
 use cgmath::{Point3, Vector3};
+use rand::SeedableRng as _;
 
 use raytracer::*;
 
@@ -28,8 +29,10 @@ fn main() {
     scene.add_sphere_light(Point3::new(0., 10., -5.), 1.0, 30.);
     // scene.add_sphere_light(Point3::new(-0.65, 0.65, -2.3), 0.1, 0.1);
 
+    let mut rng = rand::rngs::SmallRng::from_entropy();
+
     let camera = Camera::new();
-    let image = camera.render(&scene);
+    let image = camera.render(&scene, &mut rng);
 
     image.save("image.png").unwrap();
 }

@@ -12,10 +12,12 @@ path = "src/lib.rs"
 [dependencies]
 cgmath = "*"
 image = {version = "*", default-features = false, features = ["png"]}
-rand = "*"
-rand_distr = "*"
+nalgebra = "*"
+rand = {version = "0.7", default-features = false, features = ["getrandom", "small_rng"]}
+rand_distr = {version = "*", default-features = false}
 
 [dev-dependencies]
+approx = { version = "0.4", default-features = false }
 criterion = "*"
 
 [[bench]]

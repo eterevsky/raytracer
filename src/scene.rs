@@ -85,8 +85,9 @@ impl Scene {
         (nearest, best_idx)
     }
 
-    fn illumination_from_light<L: Light>(
+    fn illumination_from_light<L: Light, R: rand::Rng>(
         &self,
+        rng: &mut R,
         point: Point3<f32>,
         normal: Vector3<f32>,
         dir: Vector3<f32>,
@@ -95,9 +96,8 @@ impl Scene {
         samples: u32,
     ) -> f32 {
         let mut total = 0.;
-        let mut rng = rand::thread_rng();
         for _ in 0..samples {
-            let light_vec = light.sample_ray(point, &mut rng);
+            let light_vec = light.sample_ray(point, rng);
             let light_dist2 = light_vec.magnitude2();
             let light_dir = light_vec.normalize();
             let expanded = point + normal * 0.001;
@@ -129,7 +129,7 @@ impl Scene {
         total / samples as f32
     }
 
-    pub fn ray_color(&self, origin: Point3<f32>, dir: Vector3<f32>) -> image::Rgb<u8> {
+    pub fn ray_color<R: rand::Rng>(&self, rng: &mut R, origin: Point3<f32>, dir: Vector3<f32>) -> image::Rgb<u8> {
         let (intersection, id) = self.find_intersection(origin, dir);
         if !intersection.exists() {
             return image::Rgb([0, 0, 0]);
@@ -142,11 +142,13 @@ impl Scene {
         let normal = intersection.normal.normalize();
 
         for light in self.point_lights.iter() {
-            illumination += self.illumination_from_light(ipoint, normal, dir, &material, light, 1);
+            illumination += self.illumination_from_light(
+                rng, ipoint, normal, dir, &material, light, 1);
         }
 
         for light in self.sphere_lights.iter() {
             illumination += self.illumination_from_light(
+                rng,
                 ipoint,
                 normal,
                 dir,

@@ -49,8 +49,8 @@ impl PartialOrd for Intersection {
 }
 
 pub trait Shape {
-    // Returns negative value if there is no intersection, or the square distance to
-    // the intersection if there is one.
+    /// Returns negative value if there is no intersection, or the square distance to
+    /// the intersection if there is one.
     fn ray_intersect(&self, origin: Point3<f32>, dir: Vector3<f32>) -> Intersection;
 }
 

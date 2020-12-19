@@ -56,4 +56,3 @@ impl Light for SphereLight {
         self.intensity
     }
 }
-
