@@ -32,6 +32,15 @@ fn plane_ray(c: &mut Criterion) {
     });
 }
 
+fn planen_ray(c: &mut Criterion) {
+    let plane = PlaneN::new(nalgebra::Point3::new(0., -1., 0.), nalgebra::Vector3::y_axis());
+    let origin = nalgebra::Point3::new(0., 0., 3.);
+    let dir = nalgebra::Unit::new_normalize(nalgebra::Vector3::new(0., -0.1, 1.));
+    c.bench_function("plane ray (nalgebra)", |b| {
+        b.iter(|| black_box(&plane).ray_intersect(black_box(origin), black_box(dir)))
+    });
+}
+
 fn create_scene() -> Scene {
     let mut scene = Scene::new().set_sphere_light_samples(100);
     scene.add_plane(
@@ -164,11 +173,13 @@ fn render256x256_empty_thread_rng(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    benches,
-    sphere_ray,
+criterion_group!{
+    name = benches;
+    config = Criterion::default().significance_level(0.05).sample_size(500);
+    targets = sphere_ray,
     spheren_ray,
     plane_ray,
+    planen_ray,
     scene_ray,
     render16x16_smallrng,
     render16x16_thread_rng,
@@ -178,5 +189,6 @@ criterion_group!(
     sample_pixel_ray_thread_rng,
     render256x256_empty_smallrng,
     render256x256_empty_thread_rng,
-);
+}
+
 criterion_main!(benches);

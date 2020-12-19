@@ -80,7 +80,7 @@ impl ShapeN for SphereN {
         }
         let dist = projection2.sqrt() - seg2.sqrt();
         let to_intersect = dir.into_inner() * dist;
-        let normal = nalgebra::Unit::new_normalize(to_intersect - to_center);
+        let normal = nalgebra::Unit::new_unchecked((to_intersect - to_center) / self.radius);
         IntersectionN::new(dist, normal)
     }
 }
