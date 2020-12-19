@@ -85,6 +85,7 @@ impl ShapeN for SphereN {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 

@@ -54,6 +54,7 @@ impl ShapeN for PlaneN {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 
