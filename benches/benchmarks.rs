@@ -14,6 +14,15 @@ fn sphere_ray(c: &mut Criterion) {
     });
 }
 
+fn spheren_ray(c: &mut Criterion) {
+    let sphere = SphereN::new(nalgebra::Point3::new(0.1, 0.2, 3.), 1.);
+    let origin = nalgebra::Point3::origin();
+    let dir = nalgebra::Vector3::z_axis();
+    c.bench_function("sphere ray (nalgebra)", |b| {
+        b.iter(|| black_box(&sphere).ray_intersect(black_box(origin), black_box(dir)))
+    });
+}
+
 fn plane_ray(c: &mut Criterion) {
     let plane = Plane::new(Point3::new(0., -1., 0.), Vector3::new(0., 1., 0.));
     let origin = Point3::new(0., 0., 3.);
@@ -158,6 +167,7 @@ fn render256x256_empty_thread_rng(c: &mut Criterion) {
 criterion_group!(
     benches,
     sphere_ray,
+    spheren_ray,
     plane_ray,
     scene_ray,
     render16x16_smallrng,

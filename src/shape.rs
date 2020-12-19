@@ -54,3 +54,31 @@ pub trait Shape {
     fn ray_intersect(&self, origin: Point3<f32>, dir: Vector3<f32>) -> Intersection;
 }
 
+pub struct IntersectionN {
+    /// Square of distance if the intersection exists or a negative value if it doesn't.
+    pub dist: f32,
+    pub normal: nalgebra::Unit<nalgebra::Vector3<f32>>,
+}
+
+impl IntersectionN {
+    pub fn new(dist: f32, normal: nalgebra::Unit<nalgebra::Vector3<f32>>) -> Self {
+        IntersectionN { dist, normal }
+    }
+
+    pub fn new_empty() -> Self {
+        IntersectionN {
+            dist: -1.,
+            normal: nalgebra::Vector3::x_axis(),
+        }
+    }
+}
+
+pub trait ShapeN {
+    /// Returns negative value if there is no intersection, or the square distance to
+    /// the intersection if there is one.
+    fn ray_intersect(
+        &self,
+        origin: nalgebra::Point3<f32>,
+        dir: nalgebra::Unit<nalgebra::Vector3<f32>>,
+    ) -> IntersectionN;
+}

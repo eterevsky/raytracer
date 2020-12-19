@@ -1,4 +1,3 @@
-use cgmath;
 use cgmath::{dot, InnerSpace, Point3, Vector3};
 use image;
 use rand;

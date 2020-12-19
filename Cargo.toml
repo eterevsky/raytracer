@@ -13,8 +13,8 @@ path = "src/lib.rs"
 cgmath = "*"
 image = {version = "*", default-features = false, features = ["png"]}
 nalgebra = "*"
-rand = {version = "0.7", default-features = false, features = ["getrandom", "small_rng"]}
-rand_distr = {version = "*", default-features = false}
+rand = {version = "0.8", default-features = false, features = ["getrandom", "small_rng", "std_rng", "std"]}
+rand_distr = {version = "0.4", default-features = false}
 
 [dev-dependencies]
 approx = { version = "0.4", default-features = false }
