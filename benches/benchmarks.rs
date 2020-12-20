@@ -2,7 +2,7 @@ use cgmath::{Point3, Vector3};
 use criterion::Criterion;
 use criterion::{black_box, criterion_group, criterion_main};
 use rand::SeedableRng as _;
-use glam::{Vec3, Vec3A};
+use glam::{Vec3, Vec3A, vec3};
 
 use raytracer::*;
 
@@ -177,6 +177,40 @@ fn sample_pixel_ray_small(c: &mut Criterion) {
     });
 }
 
+fn transform_ray_glam(c: &mut Criterion) {
+    let camera = CameraG::new()
+        .set_eye(Vec3::new(1., 2., 3.))
+        .set_target(Vec3::zero());
+    let vector = Vec3::new(0.1, 0.2, -1.0);
+
+    c.bench_function("transform_ray_glam", |b| {
+        b.iter(|| black_box(&camera).transform_ray(black_box(vector)))
+    });
+}
+
+fn pixel_ray_glam(c: &mut Criterion) {
+    let camera = CameraG::new()
+        .set_eye(vec3(1., 2., 3.))
+        .set_target(Vec3::zero());
+
+    c.bench_function("pixel_ray_glam", |b| {
+        b.iter(|| black_box(&camera).pixel_ray(black_box(123), black_box(345)))
+    });
+}
+
+fn sample_pixel_ray_small_glam(c: &mut Criterion) {
+    let camera = CameraG::new()
+        .set_eye(vec3(1., 2., 3.))
+        .set_target(Vec3::zero());
+
+    let mut rng = rand::rngs::SmallRng::seed_from_u64(239);
+
+    c.bench_function("sample_pixel_ray_smallrng_glam", |b| {
+        b.iter(|| black_box(&camera).sample_pixel_ray(
+            black_box(123), black_box(345), &mut rng))
+    });
+}
+
 fn sample_pixel_ray_thread_rng(c: &mut Criterion) {
     let camera = Camera::new()
         .set_eye(nalgebra::Point3::new(1., 2., 3.))
@@ -196,6 +230,16 @@ fn render256x256_empty_smallrng(c: &mut Criterion) {
     let mut rng = rand::rngs::SmallRng::seed_from_u64(239);
 
     c.bench_function("render256x256_empty_smallrng", |b| {
+        b.iter(|| black_box(&camera).render(black_box(&scene), &mut rng))
+    });
+}
+
+fn render256x256_empty_smallrng_glam(c: &mut Criterion) {
+    let scene = Scene::new().set_sphere_light_samples(1);
+    let camera = CameraG::new().set_dimensions(256, 256);
+    let mut rng = rand::rngs::SmallRng::seed_from_u64(239);
+
+    c.bench_function("render256x256_empty_smallrng_glam", |b| {
         b.iter(|| black_box(&camera).render(black_box(&scene), &mut rng))
     });
 }
@@ -222,13 +266,17 @@ criterion_group!{
     planeg_ray,
     planega_ray,
     scene_ray,
-    render16x16_smallrng,
-    render16x16_thread_rng,
+    // render16x16_smallrng,
+    // render16x16_thread_rng,
     transform_ray,
     pixel_ray,
     sample_pixel_ray_small,
+    transform_ray_glam,
+    pixel_ray_glam,
+    sample_pixel_ray_small_glam,
     sample_pixel_ray_thread_rng,
     render256x256_empty_smallrng,
+    render256x256_empty_smallrng_glam,
     render256x256_empty_thread_rng,
 }
 

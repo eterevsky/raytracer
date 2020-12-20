@@ -10,7 +10,7 @@ mod scene;
 mod shape;
 mod sphere;
 
-pub use self::camera::Camera;
+pub use self::camera::{Camera, CameraG};
 pub use self::scene::Scene;
 pub use self::plane::*;
 pub use self::sphere::*;
