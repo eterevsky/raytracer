@@ -1,33 +1,36 @@
-use cgmath::{Point3, Vector3, Zero};
-use glam::{Vec3, Vec3A};
+use glam::Vec3;
 use std::cmp::{Ordering, PartialOrd};
+
+use crate::defines::*;
 
 #[derive(Debug)]
 pub struct Intersection {
-    pub dist2: f32,
-    pub normal: Vector3<f32>,
+    pub dist: f32,
+    pub normal: Vec3,
 }
 
 impl Intersection {
-    pub fn no() -> Self {
+    /// normal should be normalized.
+    pub fn new(dist: f32, normal: Vec3) -> Self {
+        debug_assert!((normal.length() - 1.).abs() < EPSILON );
+        Intersection { dist, normal }
+    }
+
+    pub fn new_empty() -> Self {
         Intersection {
-            dist2: -1.,
-            normal: Vector3::zero(),
+            dist: -1.,
+            normal: Vec3::unit_x(),
         }
     }
 
-    pub fn new(dist2: f32, normal: Vector3<f32>) -> Self {
-        Intersection { dist2, normal }
-    }
-
     pub fn exists(&self) -> bool {
-        self.dist2 >= 0.
+        self.dist > 0.
     }
 }
 
 impl PartialEq for Intersection {
     fn eq(&self, other: &Intersection) -> bool {
-        self.exists() && other.exists() && self.dist2 == other.dist2
+        self.dist == other.dist && self.dist > 0.
     }
 }
 
@@ -35,7 +38,7 @@ impl PartialOrd for Intersection {
     fn partial_cmp(&self, other: &Intersection) -> Option<Ordering> {
         if self.exists() {
             if other.exists() {
-                self.dist2.partial_cmp(&other.dist2)
+                self.dist.partial_cmp(&other.dist)
             } else {
                 Some(Ordering::Less)
             }
@@ -52,92 +55,5 @@ impl PartialOrd for Intersection {
 pub trait Shape {
     /// Returns negative value if there is no intersection, or the square distance to
     /// the intersection if there is one.
-    fn ray_intersect(&self, origin: Point3<f32>, dir: Vector3<f32>) -> Intersection;
+    fn ray_intersect(&self, origin: Vec3, dir: Vec3) -> Intersection;
 }
-
-pub struct IntersectionN {
-    /// Square of distance if the intersection exists or a negative value if it doesn't.
-    pub dist: f32,
-    pub normal: nalgebra::Unit<nalgebra::Vector3<f32>>,
-}
-
-impl IntersectionN {
-    pub fn new(dist: f32, normal: nalgebra::Unit<nalgebra::Vector3<f32>>) -> Self {
-        IntersectionN { dist, normal }
-    }
-
-    pub fn new_empty() -> Self {
-        IntersectionN {
-            dist: -1.,
-            normal: nalgebra::Vector3::x_axis(),
-        }
-    }
-}
-
-pub trait ShapeN {
-    /// Returns negative value if there is no intersection, or the square distance to
-    /// the intersection if there is one.
-    fn ray_intersect(
-        &self,
-        origin: nalgebra::Point3<f32>,
-        dir: nalgebra::Unit<nalgebra::Vector3<f32>>,
-    ) -> IntersectionN;
-}
-
-pub struct IntersectionG {
-    /// Square of distance if the intersection exists or a negative value if it doesn't.
-    pub dist: f32,
-    pub normal: Vec3,
-}
-
-impl IntersectionG {
-    pub fn new(dist: f32, normal: Vec3) -> Self {
-        IntersectionG { dist, normal }
-    }
-
-    pub fn new_empty() -> Self {
-        IntersectionG {
-            dist: -1.,
-            normal: Vec3::zero(),
-        }
-    }
-}
-
-pub trait ShapeG {
-    /// Returns negative value if there is no intersection, or the square distance to
-    /// the intersection if there is one.
-    fn ray_intersect(
-        &self,
-        origin: Vec3,
-        dir: Vec3,
-    ) -> IntersectionG;
-}
-pub struct IntersectionGA {
-    /// Square of distance if the intersection exists or a negative value if it doesn't.
-    pub dist: f32,
-    pub normal: Vec3A,
-}
-
-impl IntersectionGA {
-    pub fn new(dist: f32, normal: Vec3A) -> Self {
-        IntersectionGA { dist, normal }
-    }
-
-    pub fn new_empty() -> Self {
-        IntersectionGA {
-            dist: -1.,
-            normal: Vec3A::zero(),
-        }
-    }
-}
-
-pub trait ShapeGA {
-    /// Returns negative value if there is no intersection, or the square distance to
-    /// the intersection if there is one.
-    fn ray_intersect(
-        &self,
-        origin: Vec3A,
-        dir: Vec3A,
-    ) -> IntersectionGA;
-}
-

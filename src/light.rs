@@ -1,24 +1,25 @@
-use cgmath::{Point3, Vector3};
+use glam::{Vec3, vec3};
 use rand_distr::{UnitSphere, Distribution};
 
 pub trait Light {
-    fn sample_ray<R: rand::Rng>(&self, from: Point3<f32>, rng: &mut R) -> Vector3<f32>;
+    // Returns a vector from `from` to the point of intersection with the light source.
+    fn sample_ray<R: rand::Rng>(&self, from: Vec3, rng: &mut R) -> Vec3;
     fn intensity(&self) -> f32;
 }
 
 pub struct PointLight {
-    position: Point3<f32>,
+    position: Vec3,
     intensity: f32,
 }
 
 impl PointLight {
-    pub fn new(position: Point3<f32>, intensity: f32) -> Self {
+    pub fn new(position: Vec3, intensity: f32) -> Self {
         PointLight { position, intensity }
     }
 }
 
 impl Light for PointLight {
-    fn sample_ray<R: rand::Rng>(&self, from: Point3<f32>, _rng: &mut R) -> Vector3<f32> {
+    fn sample_ray<R: rand::Rng>(&self, from: Vec3, _rng: &mut R) -> Vec3 {
         self.position - from
     }
 
@@ -28,13 +29,13 @@ impl Light for PointLight {
 }
 
 pub struct SphereLight {
-    center: Point3<f32>,
+    center: Vec3,
     radius: f32,
     intensity: f32,
 }
 
 impl SphereLight {
-    pub fn new(center: Point3<f32>, radius: f32, intensity: f32) -> Self {
+    pub fn new(center: Vec3, radius: f32, intensity: f32) -> Self {
         SphereLight {
             center,
             radius,
@@ -44,11 +45,11 @@ impl SphereLight {
 }
 
 impl Light for SphereLight {
-    fn sample_ray<R: rand::Rng>(&self, from: Point3<f32>, rng: &mut R) -> Vector3<f32> {
-        let unit: [f32; 3] = UnitSphere.sample(rng);
-        let unit = Vector3::new(unit[0], unit[1], unit[2]);
+    fn sample_ray<R: rand::Rng>(&self, from: Vec3, rng: &mut R) -> Vec3 {
+        let radial: [f32; 3] = UnitSphere.sample(rng);
+        let radial = vec3(radial[0], radial[1], radial[2]);
         // assert!((unit.magnitude2() - S::one()).abs() < S::from(0.00001).unwrap());
-        let sphere_point = self.center + unit * self.radius;
+        let sphere_point = self.center + radial * self.radius;
         sphere_point - from
     }
 

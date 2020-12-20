@@ -10,12 +10,10 @@ name = "raytracer"
 path = "src/lib.rs"
 
 [dependencies]
-cgmath = "*"
 image = {version = "*", default-features = false, features = ["png"]}
-nalgebra = "*"
-rand = {version = "0.8", default-features = false, features = ["getrandom", "small_rng", "std_rng", "std"]}
-rand_distr = {version = "0.4", default-features = false}
-glam = {version = "*", features = ["debug-glam-assert"]}
+rand = {version = "*", default-features = false, features = ["getrandom", "small_rng", "std_rng", "std"]}
+rand_distr = {version = "*", default-features = false}
+glam = "*"
 
 [dev-dependencies]
 approx = { version = "0.4", default-features = false }
