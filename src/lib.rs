@@ -12,7 +12,7 @@ mod sphere;
 
 pub use self::camera::Camera;
 pub use self::scene::Scene;
-pub use self::plane::{Plane, PlaneN};
-pub use self::sphere::{Sphere, SphereN};
+pub use self::plane::*;
+pub use self::sphere::*;
 pub use self::material::Material;
-pub use self::shape::{Shape, ShapeN};
+pub use self::shape::*;

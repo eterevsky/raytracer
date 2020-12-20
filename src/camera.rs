@@ -72,10 +72,10 @@ impl Camera {
         self
     }
 
-    pub fn render<R: rand::Rng>(
+    pub fn render(
         &self,
         scene: &Scene,
-        rng: &mut R,
+        rng: &mut impl rand::Rng,
     ) -> image::ImageBuffer<image::Rgb<u8>, Vec<u8>> {
         let mut image = image::ImageBuffer::new(self.w, self.h);
         // let start = time::Instant::now();
@@ -109,7 +109,7 @@ impl Camera {
     }
 
     /// Generate a random ray within a given pixel.
-    pub fn sample_pixel_ray<R: rand::Rng>(&self, x: u32, y: u32, rng: &mut R) -> Unit<Vector3<f32>> {
+    pub fn sample_pixel_ray(&self, x: u32, y: u32, rng: &mut impl rand::Rng) -> Unit<Vector3<f32>> {
         let x = (x as i32 - self.w_half) as f32 + rng.gen::<f32>();
         let y = (self.h_half - y as i32) as f32 + rng.gen::<f32>();
         self.transform_ray(&Vector3::new(x * self.scale, y * self.scale, -1.))
@@ -164,9 +164,7 @@ mod tests {
 
     #[test]
     fn pixel_ray() {
-        let camera = Camera::new()
-            .set_fov(FRAC_PI_2)
-            .set_dimensions(400, 200);
+        let camera = Camera::new().set_fov(FRAC_PI_2).set_dimensions(400, 200);
         assert_relative_eq!(camera.pixel_ray(200, 100), -Vector3::z_axis(),);
         assert_relative_eq!(
             camera.pixel_ray(0, 100),

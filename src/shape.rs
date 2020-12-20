@@ -1,4 +1,5 @@
 use cgmath::{Point3, Vector3, Zero};
+use glam::{Vec3, Vec3A};
 use std::cmp::{Ordering, PartialOrd};
 
 #[derive(Debug)]
@@ -82,3 +83,61 @@ pub trait ShapeN {
         dir: nalgebra::Unit<nalgebra::Vector3<f32>>,
     ) -> IntersectionN;
 }
+
+pub struct IntersectionG {
+    /// Square of distance if the intersection exists or a negative value if it doesn't.
+    pub dist: f32,
+    pub normal: Vec3,
+}
+
+impl IntersectionG {
+    pub fn new(dist: f32, normal: Vec3) -> Self {
+        IntersectionG { dist, normal }
+    }
+
+    pub fn new_empty() -> Self {
+        IntersectionG {
+            dist: -1.,
+            normal: Vec3::zero(),
+        }
+    }
+}
+
+pub trait ShapeG {
+    /// Returns negative value if there is no intersection, or the square distance to
+    /// the intersection if there is one.
+    fn ray_intersect(
+        &self,
+        origin: Vec3,
+        dir: Vec3,
+    ) -> IntersectionG;
+}
+pub struct IntersectionGA {
+    /// Square of distance if the intersection exists or a negative value if it doesn't.
+    pub dist: f32,
+    pub normal: Vec3A,
+}
+
+impl IntersectionGA {
+    pub fn new(dist: f32, normal: Vec3A) -> Self {
+        IntersectionGA { dist, normal }
+    }
+
+    pub fn new_empty() -> Self {
+        IntersectionGA {
+            dist: -1.,
+            normal: Vec3A::zero(),
+        }
+    }
+}
+
+pub trait ShapeGA {
+    /// Returns negative value if there is no intersection, or the square distance to
+    /// the intersection if there is one.
+    fn ray_intersect(
+        &self,
+        origin: Vec3A,
+        dir: Vec3A,
+    ) -> IntersectionGA;
+}
+

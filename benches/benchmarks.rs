@@ -2,6 +2,7 @@ use cgmath::{Point3, Vector3};
 use criterion::Criterion;
 use criterion::{black_box, criterion_group, criterion_main};
 use rand::SeedableRng as _;
+use glam::{Vec3, Vec3A};
 
 use raytracer::*;
 
@@ -23,6 +24,24 @@ fn spheren_ray(c: &mut Criterion) {
     });
 }
 
+fn sphereg_ray(c: &mut Criterion) {
+    let sphere = SphereG::new(Vec3::new(0.1, 0.2, 3.), 1.);
+    let origin = Vec3::zero();
+    let dir = Vec3::unit_z();
+    c.bench_function("sphere ray (glam)", |b| {
+        b.iter(|| black_box(&sphere).ray_intersect(black_box(origin), black_box(dir)))
+    });
+}
+
+fn spherega_ray(c: &mut Criterion) {
+    let sphere = SphereGA::new(Vec3A::new(0.1, 0.2, 3.), 1.);
+    let origin = Vec3A::zero();
+    let dir = Vec3A::unit_z();
+    c.bench_function("sphere ray (glam w/ alignment)", |b| {
+        b.iter(|| black_box(&sphere).ray_intersect(black_box(origin), black_box(dir)))
+    });
+}
+
 fn plane_ray(c: &mut Criterion) {
     let plane = Plane::new(Point3::new(0., -1., 0.), Vector3::new(0., 1., 0.));
     let origin = Point3::new(0., 0., 3.);
@@ -37,6 +56,24 @@ fn planen_ray(c: &mut Criterion) {
     let origin = nalgebra::Point3::new(0., 0., 3.);
     let dir = nalgebra::Unit::new_normalize(nalgebra::Vector3::new(0., -0.1, 1.));
     c.bench_function("plane ray (nalgebra)", |b| {
+        b.iter(|| black_box(&plane).ray_intersect(black_box(origin), black_box(dir)))
+    });
+}
+
+fn planeg_ray(c: &mut Criterion) {
+    let plane = PlaneG::new(Vec3::new(0., -1., 0.), Vec3::unit_y());
+    let origin = Vec3::new(0., 0., 3.);
+    let dir = Vec3::new(0., -0.1, 1.).normalize();
+    c.bench_function("plane ray (glam)", |b| {
+        b.iter(|| black_box(&plane).ray_intersect(black_box(origin), black_box(dir)))
+    });
+}
+
+fn planega_ray(c: &mut Criterion) {
+    let plane = PlaneGA::new(Vec3A::new(0., -1., 0.), Vec3A::unit_y());
+    let origin = Vec3A::new(0., 0., 3.);
+    let dir = Vec3A::new(0., -0.1, 1.).normalize();
+    c.bench_function("plane ray (glam w/ alignment)", |b| {
         b.iter(|| black_box(&plane).ray_intersect(black_box(origin), black_box(dir)))
     });
 }
@@ -178,8 +215,12 @@ criterion_group!{
     config = Criterion::default().significance_level(0.05).sample_size(500);
     targets = sphere_ray,
     spheren_ray,
+    sphereg_ray,
+    spherega_ray,
     plane_ray,
     planen_ray,
+    planeg_ray,
+    planega_ray,
     scene_ray,
     render16x16_smallrng,
     render16x16_thread_rng,

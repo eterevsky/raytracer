@@ -1,5 +1,6 @@
-use crate::shape::{Intersection, IntersectionN, Shape, ShapeN};
+use crate::shape::*;
 use cgmath::{dot, InnerSpace, Point3, Vector3};
+use glam::{Vec3, Vec3A};
 
 pub struct Sphere {
     center: Point3<f32>,
@@ -82,6 +83,98 @@ impl ShapeN for SphereN {
         let to_intersect = dir.into_inner() * dist;
         let normal = nalgebra::Unit::new_unchecked((to_intersect - to_center) / self.radius);
         IntersectionN::new(dist, normal)
+    }
+}
+
+pub struct SphereG {
+    center: Vec3,
+    radius: f32,
+    radius2: f32,
+}
+
+impl SphereG {
+    pub fn new(center: Vec3, radius: f32) -> Self {
+        SphereG {
+            center,
+            radius,
+            radius2: radius * radius,
+        }
+    }
+}
+
+impl ShapeG for SphereG {
+    fn ray_intersect(
+        &self,
+        origin: Vec3,
+        dir: Vec3,
+    ) -> IntersectionG {
+        let to_center = self.center - origin;
+        // Projection of the line to the sphere center on to the ray.
+        let projection = dir.dot(to_center);
+        if projection <= 0. {
+            return IntersectionG::new_empty();
+        }
+
+        let projection2 = projection * projection;
+        let ray_dist2 = to_center.length_squared() - projection2;
+        if ray_dist2 >= self.radius2 {
+            return IntersectionG::new_empty();
+        }
+
+        let seg2 = self.radius2 - ray_dist2;
+        if projection2 <= seg2 {
+            return IntersectionG::new_empty();
+        }
+        let dist = projection2.sqrt() - seg2.sqrt();
+        let to_intersect = dir * dist;
+        let normal = (to_intersect - to_center) / self.radius;
+        IntersectionG::new(dist, normal)
+    }
+}
+
+pub struct SphereGA {
+    center: Vec3A,
+    radius: f32,
+    radius2: f32,
+}
+
+impl SphereGA {
+    pub fn new(center: Vec3A, radius: f32) -> Self {
+        SphereGA {
+            center,
+            radius,
+            radius2: radius * radius,
+        }
+    }
+}
+
+impl ShapeGA for SphereGA {
+    fn ray_intersect(
+        &self,
+        origin: Vec3A,
+        dir: Vec3A,
+    ) -> IntersectionGA {
+        let to_center = self.center - origin;
+        // Projection of the line to the sphere center on to the ray.
+        let projection = dir.dot(to_center);
+        if projection <= 0. {
+            return IntersectionGA::new_empty();
+        }
+
+        let projection2 = projection * projection;
+        let ray_dist2 = to_center.length_squared() - projection2;
+        if ray_dist2 >= self.radius2 {
+            return IntersectionGA::new_empty();
+        }
+
+        let seg2 = self.radius2 - ray_dist2;
+        if projection2 <= seg2 {
+            return IntersectionGA::new_empty();
+        }
+        let dist = projection2.sqrt() - seg2.sqrt();
+        let to_intersect = dir * dist;
+        let normal = (to_intersect - to_center) / self.radius;
+        IntersectionGA::new(dist, normal)
     }
 }
 

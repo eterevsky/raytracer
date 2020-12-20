@@ -1,4 +1,6 @@
 use cgmath::{abs_diff_eq, dot, InnerSpace, Point3, Vector3};
+use glam::{Vec3, Vec3A};
+
 use crate::shape::*;
 
 pub struct Plane {
@@ -51,6 +53,58 @@ impl ShapeN for PlaneN {
             return IntersectionN::new_empty();
         }
         IntersectionN::new(ratio, self.normal)
+    }
+}
+
+pub struct PlaneG {
+    point: Vec3,
+    normal: Vec3,
+}
+
+impl PlaneG {
+    pub fn new(point: Vec3, normal: Vec3) -> Self {
+        PlaneG { point, normal }
+    }
+}
+
+impl ShapeG for PlaneG {
+    fn ray_intersect(&self, origin: Vec3, dir: Vec3) -> IntersectionG {
+        let dir_proj = dir.dot(self.normal);
+        if abs_diff_eq!(dir_proj, 0.) {
+            return IntersectionG::new_empty();
+        }
+        let point_proj = self.normal.dot(self.point - origin);
+        let ratio = point_proj / dir_proj;
+        if ratio < 1E-6 {
+            return IntersectionG::new_empty();
+        }
+        IntersectionG::new(ratio, self.normal)
+    }
+}
+
+pub struct PlaneGA {
+    point: Vec3A,
+    normal: Vec3A,
+}
+
+impl PlaneGA {
+    pub fn new(point: Vec3A, normal: Vec3A) -> Self {
+        PlaneGA { point, normal }
+    }
+}
+
+impl ShapeGA for PlaneGA {
+    fn ray_intersect(&self, origin: Vec3A, dir: Vec3A) -> IntersectionGA {
+        let dir_proj = dir.dot(self.normal);
+        if abs_diff_eq!(dir_proj, 0.) {
+            return IntersectionGA::new_empty();
+        }
+        let point_proj = self.normal.dot(self.point - origin);
+        let ratio = point_proj / dir_proj;
+        if ratio < 1E-6 {
+            return IntersectionGA::new_empty();
+        }
+        IntersectionGA::new(ratio, self.normal)
     }
 }
 
