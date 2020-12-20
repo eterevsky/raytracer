@@ -2,7 +2,7 @@ use glam::Vec3;
 
 use crate::defines::*;
 use crate::light::{Light, PointLight, SphereLight};
-use crate::material::Material;
+use crate::material::{Color, Material};
 use crate::plane::Plane;
 use crate::shape::{Intersection, Shape};
 use crate::sphere::Sphere;
@@ -13,7 +13,6 @@ pub struct Scene {
     materials: Vec<Material>,
     point_lights: Vec<PointLight>,
     sphere_lights: Vec<SphereLight>,
-    sphere_light_samples: u32,
 }
 
 impl Scene {
@@ -24,7 +23,6 @@ impl Scene {
             materials: Vec::new(),
             point_lights: Vec::new(),
             sphere_lights: Vec::new(),
-            sphere_light_samples: 100,
         }
     }
 
@@ -49,11 +47,6 @@ impl Scene {
     pub fn add_sphere_light(&mut self, center: Vec3, radius: f32, intensity: f32) {
         self.sphere_lights
             .push(SphereLight::new(center, radius, intensity))
-    }
-
-    pub fn set_sphere_light_samples(mut self, value: u32) -> Self {
-        self.sphere_light_samples = value;
-        self
     }
 
     pub fn find_intersection(&self, origin: Vec3, dir: Vec3) -> (Intersection, usize) {
@@ -88,50 +81,44 @@ impl Scene {
         dir: Vec3,
         material: &Material,
         light: &impl Light,
-        samples: u32,
         rng: &mut impl rand::Rng,
     ) -> f32 {
-        let mut total = 0.;
-        for _ in 0..samples {
-            let light_vec = light.sample_ray(point, rng);
-            let light_dist2 = light_vec.length_squared();
-            let light_dist = light_dist2.sqrt();
-            let light_dir = light_vec / light_dist;
+        let light_vec = light.sample_ray(point, rng);
+        let light_dist2 = light_vec.length_squared();
+        let light_dist = light_dist2.sqrt();
+        let light_dir = light_vec / light_dist;
 
-            let expanded = point + normal * EPSILON;
-            let (to_light_int, _) = self.find_intersection(expanded, light_dir);
-            if to_light_int.exists() && to_light_int.dist < light_dist {
-                continue;
-            }
-            let diffusion_intensity = normal.dot(light_dir);
-            // Light is on the other side of the surface.
-            if diffusion_intensity < EPSILON {
-                // TODO: shouldn't happen
-                continue;
-            }
-
-            let reflect_vec = normal * (2. * light_dir.dot(normal)) - light_dir;
-            let reflect_vec = reflect_vec.normalize();
-            let reflect_intensity = reflect_vec.dot(-dir);
-            let reflect_intensity = if reflect_intensity > 0. {
-                reflect_intensity.powf(material.shininess)
-            } else {
-                0.
-            };
-
-            total += light.intensity() / light_dist2
-                * (material.diffusion * diffusion_intensity
-                    + material.reflection * reflect_intensity)
+        let expanded = point + normal * EPSILON;
+        let (to_light_int, _) = self.find_intersection(expanded, light_dir);
+        if to_light_int.exists() && to_light_int.dist < light_dist {
+            return 0.;
+        }
+        let diffusion_intensity = normal.dot(light_dir);
+        // Light is on the other side of the surface.
+        if diffusion_intensity < EPSILON {
+            // TODO: shouldn't happen
+            return 0.;
         }
 
-        total / samples as f32
+        let reflect_vec = normal * (2. * light_dir.dot(normal)) - light_dir;
+        let reflect_vec = reflect_vec.normalize();
+        let reflect_intensity = reflect_vec.dot(-dir);
+        let reflect_intensity = if reflect_intensity > 0. {
+            reflect_intensity.powf(material.shininess)
+        } else {
+            0.
+        };
+
+        light.intensity() / light_dist2
+            * (material.diffusion * diffusion_intensity
+                + material.reflection * reflect_intensity)
     }
 
     pub fn ray_color(&self, origin: Vec3, dir: Vec3, rng: &mut impl rand::Rng)
-    -> image::Rgb<u8> {
+    -> Color {
         let (intersection, id) = self.find_intersection(origin, dir);
         if !intersection.exists() {
-            return image::Rgb([0, 0, 0]);
+            return Color::black();
         }
 
         let material = self.materials[id];
@@ -141,7 +128,7 @@ impl Scene {
 
         for light in self.point_lights.iter() {
             illumination += self.illumination_from_light(
-                ipoint, normal, dir, &material, light, 1, rng);
+                ipoint, normal, dir, &material, light, rng);
         }
 
         for light in self.sphere_lights.iter() {
@@ -151,11 +138,10 @@ impl Scene {
                 dir,
                 &material,
                 light,
-                self.sphere_light_samples,
                 rng,
             );
         }
 
-        (material.color * illumination).into()
+        material.color * illumination
     }
 }

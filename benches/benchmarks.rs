@@ -24,7 +24,7 @@ fn plane_ray(c: &mut Criterion) {
 }
 
 fn create_scene() -> Scene {
-    let mut scene = Scene::new().set_sphere_light_samples(100);
+    let mut scene = Scene::new();
     scene.add_plane(
         Plane::new(vec3(0., -1., 0.), vec3(0., 1., 0.)),
         Material::new(0.8, 0.8, 0.8),
@@ -108,8 +108,8 @@ fn sample_pixel_ray_threadrng(c: &mut Criterion) {
 }
 
 fn render256x256_empty_smallrng(c: &mut Criterion) {
-    let scene = Scene::new().set_sphere_light_samples(1);
-    let camera = Camera::new().set_dimensions(256, 256);
+    let scene = Scene::new();
+    let camera = Camera::new().set_dimensions(256, 256).set_samples(1);
     let mut rng = rand::rngs::SmallRng::seed_from_u64(239);
 
     c.bench_function("render256x256_empty_smallrng_glam", |b| {
@@ -118,8 +118,8 @@ fn render256x256_empty_smallrng(c: &mut Criterion) {
 }
 
 fn render256x256_empty_threadrng(c: &mut Criterion) {
-    let scene = Scene::new().set_sphere_light_samples(1);
-    let camera = Camera::new().set_dimensions(256, 256);
+    let scene = Scene::new();
+    let camera = Camera::new().set_dimensions(256, 256).set_samples(1);
     let mut rng = rand::thread_rng();
 
     c.bench_function("render256x256_empty_threadrng", |b| {

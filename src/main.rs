@@ -31,7 +31,8 @@ fn main() {
 
     let mut rng = rand::rngs::SmallRng::from_entropy();
 
-    let camera = Camera::new().set_dimensions(16, 16);
+    let camera = Camera::new().set_dimensions(1280, 720);
+    // .set_dimensions(16, 16);
     let image = camera.render(&scene, &mut rng);
 
     image.save("image.png").unwrap();

@@ -1,6 +1,7 @@
 use glam::{Mat4, Quat, Vec3};
 use std::f32::consts::FRAC_PI_2;
 
+use crate::material::Color;
 use crate::scene::Scene;
 
 pub struct Camera {
@@ -10,6 +11,7 @@ pub struct Camera {
     horizontal_fov: f32,
     w: u32,
     h: u32,
+    samples: u32,
 
     w_half: i32,
     h_half: i32,
@@ -32,6 +34,7 @@ impl Camera {
             horizontal_fov,
             w,
             h,
+            samples: 100,
             w_half: (w / 2) as i32,
             h_half: (h / 2) as i32,
             scale: scale_from_dims(w, horizontal_fov),
@@ -72,6 +75,11 @@ impl Camera {
         self
     }
 
+    pub fn set_samples(mut self, samples: u32) -> Self {
+        self.samples = samples;
+        self
+    }
+
     pub fn render(
         &self,
         scene: &Scene,
@@ -80,8 +88,14 @@ impl Camera {
         let mut image = image::ImageBuffer::new(self.w, self.h);
 
         for (x, y, pixel) in image.enumerate_pixels_mut() {
-            let dir = self.pixel_ray(x, y);
-            *pixel = scene.ray_color(self.eye, dir, rng);
+            let mut color_sum = Color::black();
+            for _ in 0..self.samples {
+                let dir = self.sample_pixel_ray(x, y, rng);
+                color_sum += scene.ray_color(self.eye, dir, rng);
+            }
+
+            let color = color_sum * (1. / self.samples as f32);
+            *pixel = color.into();
         }
 
         image
